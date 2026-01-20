@@ -4,7 +4,12 @@ import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ToolConfirmation from './ToolConfirmation';
 import { apiClient } from '../services/api';
-import type { ChatMessage, StreamEvent, ToolCall } from '../types';
+import type {
+  ChatMessage,
+  StreamEvent,
+  ToolCall,
+  ThoughtSummary,
+} from '../types';
 import './ChatInterface.css';
 
 interface ChatInterfaceProps {
@@ -25,6 +30,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [currentStreamingId, setCurrentStreamingId] = useState<string | null>(
     null,
   );
+  const [currentThoughts, setCurrentThoughts] = useState<ThoughtSummary[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +98,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
     setCurrentStreamingContent('');
     setCurrentStreamingId(null);
+    setCurrentThoughts([]);
 
     // Use refs to track streaming content to avoid closure issues
     let streamingMessageId: string | null = null;
@@ -109,6 +116,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           if (content) {
             streamingContent += content;
             setCurrentStreamingContent(streamingContent);
+          }
+        } else if (event.type === 'thought') {
+          // 思考过程事件
+          const data = event.data as { thought?: ThoughtSummary };
+          if (data.thought) {
+            setCurrentThoughts((prev) => [...prev, data.thought!]);
           }
         } else if (event.type === 'tool_call') {
           const toolCall = event.data as ToolCall;
@@ -131,6 +144,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             setMessages((prev) => [...prev, assistantMessage]);
             setCurrentStreamingContent('');
             setCurrentStreamingId(null);
+            setCurrentThoughts([]);
           }
           setIsLoading(false);
         } else if (event.type === 'error') {
@@ -195,10 +209,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         ) : (
           <MessageList
             messages={messages}
-            streamingContent={
-              currentStreamingContent && currentStreamingId
-                ? currentStreamingContent
-                : undefined
+            streamingContent={currentStreamingContent || undefined}
+            streamingThoughts={
+              currentThoughts.length > 0 ? currentThoughts : undefined
             }
           />
         )}
