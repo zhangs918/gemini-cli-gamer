@@ -1,24 +1,16 @@
 .app {
   display: flex;
-  flex-direction: column;
   height: 100vh;
-}
-
-.app-header {
-  background-color: #2a2a2a;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid #3a3a3a;
-}
-
-.app-header h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #ffffff;
+  width: 100vw;
+  overflow: hidden;
+  background-color: #ffffff;
 }
 
 .app-main {
   flex: 1;
   display: flex;
+  flex-direction: column;
   overflow: hidden;
+  background-color: #ffffff;
 }
 

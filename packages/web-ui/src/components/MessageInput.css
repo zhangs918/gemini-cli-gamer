@@ -1,28 +1,47 @@
 .message-input-container {
   display: flex;
-  gap: 0.5rem;
-  padding: 1rem;
-  background-color: #2a2a2a;
-  border-top: 1px solid #3a3a3a;
+  gap: 12px;
+  padding: 16px 24px;
+  background-color: #ffffff;
+  border-top: 1px solid #e5e5e6;
+  max-width: 768px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.message-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  background-color: #f7f7f8;
+  border: 1px solid #e5e5e6;
+  border-radius: 12px;
+  padding: 12px 16px;
+  transition: all 0.2s;
+}
+
+.message-input-wrapper:focus-within {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .message-input {
   flex: 1;
-  padding: 0.75rem 1rem;
-  background-color: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  border-radius: 8px;
-  color: #e0e0e0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: #1f2937;
   font-family: inherit;
-  font-size: 1rem;
+  font-size: 14px;
   resize: none;
-  min-height: 44px;
+  min-height: 24px;
   max-height: 200px;
+  line-height: 1.5;
 }
 
 .message-input:focus {
   outline: none;
-  border-color: #0066cc;
 }
 
 .message-input:disabled {
@@ -31,27 +50,42 @@
 }
 
 .message-input::placeholder {
-  color: #666;
+  color: #9ca3af;
 }
 
 .message-send-button {
-  padding: 0.75rem 1.5rem;
-  background-color: #0066cc;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .message-send-button:hover:not(:disabled) {
-  background-color: #0052a3;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.message-send-button:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .message-send-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+}
+
+.message-send-button svg {
+  width: 18px;
+  height: 18px;
 }
 

@@ -7,7 +7,17 @@ import { apiClient } from '../services/api';
 import type { ChatMessage, StreamEvent, ToolCall } from '../types';
 import './ChatInterface.css';
 
-const ChatInterface: React.FC = () => {
+interface ChatInterfaceProps {
+  conversationId: string | null;
+  onUpdateTitle?: (id: string, title: string) => void;
+  onAddMessage?: () => void;
+}
+
+const ChatInterface: React.FC<ChatInterfaceProps> = ({
+  conversationId,
+  onUpdateTitle,
+  onAddMessage,
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingToolCall, setPendingToolCall] = useState<ToolCall | null>(null);
@@ -15,7 +25,44 @@ const ChatInterface: React.FC = () => {
   const [currentStreamingId, setCurrentStreamingId] = useState<string | null>(
     null,
   );
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Load messages for current conversation
+  useEffect(() => {
+    if (conversationId) {
+      const saved = localStorage.getItem(`gemini-messages-${conversationId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved) as ChatMessage[];
+        setMessages(parsed);
+      } else {
+        setMessages([]);
+      }
+      // Generate session ID from conversation ID
+      setSessionId(conversationId.replace('conv-', 'session-'));
+    } else {
+      setMessages([]);
+      setSessionId(null);
+    }
+  }, [conversationId]);
+
+  // Save messages when they change
+  useEffect(() => {
+    if (conversationId && messages.length > 0) {
+      localStorage.setItem(
+        `gemini-messages-${conversationId}`,
+        JSON.stringify(messages),
+      );
+      // Update conversation title from first user message
+      if (messages.length > 0 && onUpdateTitle) {
+        const firstUserMessage = messages.find((m) => m.role === 'user');
+        if (firstUserMessage) {
+          const title = firstUserMessage.content.substring(0, 30);
+          onUpdateTitle(conversationId, title);
+        }
+      }
+    }
+  }, [messages, conversationId, onUpdateTitle]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -43,9 +90,14 @@ const ChatInterface: React.FC = () => {
     try {
       const handleStream = (event: StreamEvent) => {
         if (event.type === 'text') {
-          const { content, messageId } = event.data;
-          setCurrentStreamingId(messageId);
-          setCurrentStreamingContent((prev) => prev + (content || ''));
+          const data = event.data as { content?: string; messageId?: string };
+          const { content, messageId } = data;
+          if (messageId) {
+            setCurrentStreamingId(messageId);
+          }
+          if (content) {
+            setCurrentStreamingContent((prev) => prev + content);
+          }
         } else if (event.type === 'tool_call') {
           const toolCall = event.data as ToolCall;
           setPendingToolCall(toolCall);
@@ -69,7 +121,12 @@ const ChatInterface: React.FC = () => {
         }
       };
 
-      await apiClient.sendMessage(content, undefined, handleStream);
+      await apiClient.sendMessage(
+        content,
+        sessionId || undefined,
+        handleStream,
+      );
+      onAddMessage?.();
     } catch (error) {
       console.error('Failed to send message:', error);
       const errorMessage: ChatMessage = {
@@ -97,17 +154,36 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  if (!conversationId) {
+    return (
+      <div className="chat-interface empty">
+        <div className="empty-state">
+          <div className="empty-icon">G</div>
+          <h2>今天有什么可以帮到你?</h2>
+          <p>选择一个对话或创建新对话开始</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="chat-interface">
       <div className="chat-messages">
-        <MessageList
-          messages={messages}
-          streamingContent={
-            currentStreamingContent && currentStreamingId
-              ? currentStreamingContent
-              : undefined
-          }
-        />
+        {messages.length === 0 && !isLoading ? (
+          <div className="empty-chat">
+            <div className="empty-icon">G</div>
+            <h2>今天有什么可以帮到你?</h2>
+          </div>
+        ) : (
+          <MessageList
+            messages={messages}
+            streamingContent={
+              currentStreamingContent && currentStreamingId
+                ? currentStreamingContent
+                : undefined
+            }
+          />
+        )}
         <div ref={messagesEndRef} />
       </div>
       {pendingToolCall && (
