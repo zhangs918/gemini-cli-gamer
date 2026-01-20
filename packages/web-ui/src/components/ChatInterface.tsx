@@ -132,6 +132,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             setIsLoading(false);
           }
           // YOLO mode: 如果不需要确认，工具会自动执行，继续处理流式响应
+        } else if (event.type === 'tool_result') {
+          // 工具执行结果，继续处理流式响应
+          // 可以选择显示工具执行结果，但不中断流式显示
+          console.log('Tool result:', event.data);
         } else if (event.type === 'done') {
           // Use the refs values instead of state values to avoid closure issues
           if (streamingMessageId && streamingContent) {
@@ -142,10 +146,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               timestamp: Date.now(),
             };
             setMessages((prev) => [...prev, assistantMessage]);
-            setCurrentStreamingContent('');
-            setCurrentStreamingId(null);
-            setCurrentThoughts([]);
           }
+          // 清空流式状态
+          setCurrentStreamingContent('');
+          setCurrentStreamingId(null);
+          setCurrentThoughts([]);
           setIsLoading(false);
         } else if (event.type === 'error') {
           console.error('Stream error:', event.data);
