@@ -99,6 +99,16 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
                 `data: ${JSON.stringify({ type: 'text', content: text, messageId: promptId })}\n\n`,
               );
             }
+          } else if (event.type === GeminiEventType.Thought) {
+            // Thought 事件：AI 的思考过程
+            const thoughtValue = event.value;
+            res.write(
+              `data: ${JSON.stringify({
+                type: 'thought',
+                thought: thoughtValue,
+                messageId: promptId,
+              })}\n\n`,
+            );
           } else if (event.type === GeminiEventType.ToolCallRequest) {
             // ToolCallRequest 事件的 value 是 ToolCallRequestInfo 类型
             const toolCall = event.value;

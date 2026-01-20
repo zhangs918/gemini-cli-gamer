@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar, { type Conversation } from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import './App.css';
@@ -32,7 +32,7 @@ function App() {
     }
   }, [conversations]);
 
-  const handleNewConversation = () => {
+  const handleNewConversation = useCallback(() => {
     const newId = `conv-${Date.now()}`;
     const newConversation: Conversation = {
       id: newId,
@@ -42,21 +42,24 @@ function App() {
     };
     setConversations((prev) => [newConversation, ...prev]);
     setCurrentConversationId(newId);
-  };
+  }, []);
 
-  const handleSelectConversation = (id: string) => {
+  const handleSelectConversation = useCallback((id: string) => {
     setCurrentConversationId(id);
-  };
+  }, []);
 
-  const handleUpdateConversationTitle = (id: string, title: string) => {
-    setConversations((prev) =>
-      prev.map((conv) =>
-        conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
-      ),
-    );
-  };
+  const handleUpdateConversationTitle = useCallback(
+    (id: string, title: string) => {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
+        ),
+      );
+    },
+    [],
+  );
 
-  const handleAddMessage = () => {
+  const handleAddMessage = useCallback(() => {
     if (currentConversationId) {
       setConversations((prev) =>
         prev.map((conv) =>
@@ -66,7 +69,7 @@ function App() {
         ),
       );
     }
-  };
+  }, [currentConversationId]);
 
   return (
     <div className="app">

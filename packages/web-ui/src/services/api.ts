@@ -78,12 +78,20 @@ export class ApiClient {
             try {
               const data = JSON.parse(line.slice(6));
 
-              if (data.type === 'text') {
+              if (data.type === 'messageId') {
+                // 初始消息 ID 事件
+                messageId = data.messageId || messageId;
+              } else if (data.type === 'text') {
                 fullContent += data.content || '';
                 messageId = data.messageId || messageId;
                 onStream?.({
                   type: 'text',
                   data: { content: data.content, messageId },
+                });
+              } else if (data.type === 'thought') {
+                onStream?.({
+                  type: 'thought',
+                  data: { thought: data.thought },
                 });
               } else if (data.type === 'tool_call') {
                 onStream?.({

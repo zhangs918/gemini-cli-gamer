@@ -14,8 +14,13 @@ export interface ChatSession {
 }
 
 export interface StreamEvent {
-  type: 'text' | 'tool_call' | 'tool_result' | 'error' | 'done';
+  type: 'text' | 'thought' | 'tool_call' | 'tool_result' | 'error' | 'done';
   data: unknown;
+}
+
+export interface ThoughtSummary {
+  subject: string;
+  description: string;
 }
 
 export interface ToolCall {

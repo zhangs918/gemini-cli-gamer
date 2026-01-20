@@ -1,31 +1,34 @@
 /* eslint-disable */
 import Message from './Message';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, ThoughtSummary } from '../types';
 import './MessageList.css';
 
 interface MessageListProps {
   messages: ChatMessage[];
   streamingContent?: string;
+  streamingThoughts?: ThoughtSummary[];
 }
 
 const MessageList: React.FC<MessageListProps> = ({
   messages,
   streamingContent,
+  streamingThoughts,
 }) => {
   return (
     <div className="message-list">
       {messages.map((message) => (
         <Message key={message.id} message={message} />
       ))}
-      {streamingContent && (
+      {(streamingContent || streamingThoughts) && (
         <Message
           message={{
             id: 'streaming',
             role: 'assistant',
-            content: streamingContent,
+            content: streamingContent || '',
             timestamp: Date.now(),
             isStreaming: true,
           }}
+          thoughts={streamingThoughts}
         />
       )}
     </div>
