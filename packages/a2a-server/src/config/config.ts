@@ -158,6 +158,36 @@ export function setTargetDir(agentSettings: AgentSettings | undefined): string {
       : undefined);
 
   if (!targetDir) {
+    // 默认使用项目根目录下的 @projects 文件夹（不存在则回退到 projects）
+    let projectRoot = originalCWD;
+    // 如果当前目录是 packages/a2a-server，需要回到项目根目录
+    if (projectRoot.endsWith('packages/a2a-server')) {
+      projectRoot = path.resolve(projectRoot, '../..');
+    }
+    const defaultAtProjectsDir = path.resolve(projectRoot, '@projects');
+    const defaultProjectsDir = path.resolve(projectRoot, 'projects');
+    const defaultDir = fs.existsSync(defaultAtProjectsDir)
+      ? defaultAtProjectsDir
+      : fs.existsSync(defaultProjectsDir)
+        ? defaultProjectsDir
+        : null;
+
+    // 如果默认目录存在，使用它；否则使用原始工作目录
+    if (defaultDir) {
+      logger.info(
+        `[CoderAgentExecutor] Using default workspace directory: ${defaultDir}`,
+      );
+      try {
+        process.chdir(defaultDir);
+        return defaultDir;
+      } catch (e) {
+        logger.warn(
+          `[CoderAgentExecutor] Error changing to default workspace directory: ${e}, using original cwd`,
+        );
+        return originalCWD;
+      }
+    }
+
     return originalCWD;
   }
 
