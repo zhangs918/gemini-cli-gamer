@@ -112,8 +112,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }
         } else if (event.type === 'tool_call') {
           const toolCall = event.data as ToolCall;
-          setPendingToolCall(toolCall);
-          setIsLoading(false);
+          // 只有在需要确认时才设置 pendingToolCall
+          // YOLO mode: 如果 requiresConfirmation 为 false，则继续处理，不暂停
+          if (toolCall.requiresConfirmation) {
+            setPendingToolCall(toolCall);
+            setIsLoading(false);
+          }
+          // YOLO mode: 如果不需要确认，工具会自动执行，继续处理流式响应
         } else if (event.type === 'done') {
           // Use the refs values instead of state values to avoid closure issues
           if (streamingMessageId && streamingContent) {

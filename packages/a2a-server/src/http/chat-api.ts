@@ -114,12 +114,12 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
                     id: toolCall.callId || uuidv4(),
                     name: toolCall.name || 'unknown',
                     args: toolCall.args || {},
-                    requiresConfirmation: true,
+                    requiresConfirmation: false, // YOLO mode: 无需确认，直接执行
                   },
                 })}\n\n`,
               );
-              // 工具调用需要确认，暂停流式响应
-              break;
+              // YOLO mode: 不暂停流式响应，继续处理后续事件
+              // 工具会自动执行，不需要等待用户确认
             }
           } else if (event.type === GeminiEventType.ToolCallResponse) {
             const toolResult = event.value;
