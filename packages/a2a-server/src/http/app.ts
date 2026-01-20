@@ -27,7 +27,11 @@ import { loadConfig, loadEnvironment, setTargetDir } from '../config/config.js';
 import { loadSettings } from '../config/settings.js';
 import { loadExtensions } from '../config/extension.js';
 import { commandRegistry } from '../commands/command-registry.js';
-import { debugLogger, SimpleExtensionLoader } from '@google/gemini-cli-core';
+import {
+  debugLogger,
+  SimpleExtensionLoader,
+  ApprovalMode,
+} from '@google/gemini-cli-core';
 import type { Command, CommandArgument } from '../commands/types.js';
 import { GitService } from '@google/gemini-cli-core';
 import { setupChatRoutes } from './chat-api.js';
@@ -163,6 +167,14 @@ export async function createApp() {
       new SimpleExtensionLoader(extensions),
       'a2a-server',
     );
+
+    // Enable YOLO mode for chat API to auto-execute tools without user confirmation
+    try {
+      config.setApprovalMode(ApprovalMode.YOLO);
+      logger.info('[CoreAgent] Chat API: YOLO mode enabled for auto-execution');
+    } catch (error) {
+      logger.warn('[CoreAgent] Could not set YOLO mode:', error);
+    }
 
     let git: GitService | undefined;
     if (config.getCheckpointingEnabled()) {

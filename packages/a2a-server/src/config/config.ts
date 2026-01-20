@@ -15,6 +15,8 @@ import {
   type ConfigParameters,
   FileDiscoveryService,
   ApprovalMode,
+  createPolicyEngineConfig,
+  type PolicySettings,
   loadServerHierarchicalMemory,
   GEMINI_DIR,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -86,6 +88,18 @@ export async function loadConfig(
     interactive: true,
     enableInteractiveShell: true,
   };
+
+  // Build PolicyEngineConfig to load default TOML policies (including yolo.toml)
+  const policySettings: PolicySettings = {
+    mcpServers: settings.mcpServers,
+    tools: {
+      exclude: settings.excludeTools,
+    },
+  };
+  configParams.policyEngineConfig = await createPolicyEngineConfig(
+    policySettings,
+    configParams.approvalMode ?? ApprovalMode.DEFAULT,
+  );
 
   const fileService = new FileDiscoveryService(workspaceDir);
   const { memoryContent, fileCount, filePaths } =

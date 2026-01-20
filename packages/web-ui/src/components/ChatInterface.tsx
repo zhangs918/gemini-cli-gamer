@@ -27,9 +27,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [pendingToolCall, setPendingToolCall] = useState<ToolCall | null>(null);
   const [currentStreamingContent, setCurrentStreamingContent] = useState('');
-  const [currentStreamingId, setCurrentStreamingId] = useState<string | null>(
-    null,
-  );
   const [currentThoughts, setCurrentThoughts] = useState<ThoughtSummary[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,7 +35,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     // Clear streaming state when switching conversations
     setCurrentStreamingContent('');
-    setCurrentStreamingId(null);
     setIsLoading(false);
     setPendingToolCall(null);
 
@@ -97,7 +93,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
     setCurrentStreamingContent('');
-    setCurrentStreamingId(null);
     setCurrentThoughts([]);
 
     // Use refs to track streaming content to avoid closure issues
@@ -111,7 +106,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           const { content, messageId } = data;
           if (messageId) {
             streamingMessageId = messageId;
-            setCurrentStreamingId(messageId);
           }
           if (content) {
             streamingContent += content;
@@ -149,7 +143,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }
           // 清空流式状态
           setCurrentStreamingContent('');
-          setCurrentStreamingId(null);
           setCurrentThoughts([]);
           setIsLoading(false);
         } else if (event.type === 'error') {
