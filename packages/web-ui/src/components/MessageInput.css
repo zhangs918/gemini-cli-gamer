@@ -1,0 +1,57 @@
+.message-input-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  background-color: #2a2a2a;
+  border-top: 1px solid #3a3a3a;
+}
+
+.message-input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background-color: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 8px;
+  color: #e0e0e0;
+  font-family: inherit;
+  font-size: 1rem;
+  resize: none;
+  min-height: 44px;
+  max-height: 200px;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #0066cc;
+}
+
+.message-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.message-input::placeholder {
+  color: #666;
+}
+
+.message-send-button {
+  padding: 0.75rem 1.5rem;
+  background-color: #0066cc;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.message-send-button:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.message-send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

@@ -1,0 +1,79 @@
+.tool-confirmation-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tool-confirmation-dialog {
+  background-color: #2a2a2a;
+  border: 1px solid #3a3a3a;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 600px;
+  width: 90%;
+  color: #e0e0e0;
+}
+
+.tool-confirmation-dialog h3 {
+  margin-bottom: 1rem;
+  color: #ffffff;
+}
+
+.tool-confirmation-content {
+  margin-bottom: 1.5rem;
+}
+
+.tool-confirmation-content p {
+  margin-bottom: 0.5rem;
+}
+
+.tool-confirmation-args {
+  background-color: #1a1a1a;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.tool-confirmation-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.tool-confirm-button {
+  padding: 0.5rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.tool-confirm-allow {
+  background-color: #0066cc;
+  color: #ffffff;
+}
+
+.tool-confirm-allow:hover {
+  opacity: 0.9;
+}
+
+.tool-confirm-deny {
+  background-color: #cc0000;
+  color: #ffffff;
+}
+
+.tool-confirm-deny:hover {
+  opacity: 0.9;
+}
+

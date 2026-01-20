@@ -5,6 +5,8 @@
  */
 
 import express from 'express';
+import * as path from 'node:path';
+import * as url from 'node:url';
 
 import type { AgentCard, Message } from '@a2a-js/sdk';
 import type { TaskStore } from '@a2a-js/sdk/server';
@@ -28,6 +30,7 @@ import { commandRegistry } from '../commands/command-registry.js';
 import { debugLogger, SimpleExtensionLoader } from '@google/gemini-cli-core';
 import type { Command, CommandArgument } from '../commands/types.js';
 import { GitService } from '@google/gemini-cli-core';
+import { setupChatRoutes } from './chat-api.js';
 
 type CommandResponse = {
   name: string;
@@ -316,6 +319,67 @@ export async function createApp() {
       }
       res.json({ metadata: await wrapper.task.getMetadata() });
     });
+
+    // 设置聊天 API 路由
+    setupChatRoutes(expressApp, config);
+
+    // 静态文件服务 - 服务前端构建产物（必须在所有 API 路由之后）
+    // 从当前文件位置计算项目根目录
+    const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
+    const fs = await import('node:fs');
+
+    // 找到项目根目录（包含 package.json 的目录）
+    let projectRoot = process.cwd();
+    // 如果当前目录是 packages/a2a-server，需要回到项目根目录
+    if (projectRoot.endsWith('packages/a2a-server')) {
+      projectRoot = path.resolve(projectRoot, '../..');
+    }
+
+    // 尝试多个可能的路径（开发模式和构建模式）
+    const possiblePaths = [
+      // 从项目根目录直接指定（最可靠的方法）
+      path.resolve(projectRoot, 'packages/web-ui/dist'),
+      // 构建模式：packages/a2a-server/dist/src/http -> ../../../../packages/web-ui/dist
+      path.resolve(__dirname, '../../../../packages/web-ui/dist'),
+      // 开发模式：packages/a2a-server/src/http -> ../../../packages/web-ui/dist
+      path.resolve(__dirname, '../../../packages/web-ui/dist'),
+    ];
+
+    let webUiDistPath: string | null = null;
+    logger.info(
+      `[CoreAgent] Looking for web UI at __dirname: ${__dirname}, cwd: ${process.cwd()}`,
+    );
+    for (const possiblePath of possiblePaths) {
+      logger.info(`[CoreAgent] Checking path: ${possiblePath}`);
+      if (fs.existsSync(possiblePath)) {
+        webUiDistPath = possiblePath;
+        logger.info(`[CoreAgent] Found web UI at: ${webUiDistPath}`);
+        break;
+      }
+    }
+
+    // 检查 web-ui 是否已构建
+    if (webUiDistPath && fs.existsSync(webUiDistPath)) {
+      const staticPath = webUiDistPath; // 保存为局部变量
+      expressApp.use(express.static(staticPath));
+      // SPA 路由回退 - 所有非 API 路由返回 index.html
+      // 使用 use 而不是 get，避免 path-to-regexp 错误
+      expressApp.use((req, res, next) => {
+        if (
+          req.path.startsWith('/api') ||
+          req.path.startsWith('/.well-known')
+        ) {
+          return next();
+        }
+        res.sendFile(path.join(staticPath, 'index.html'));
+      });
+      logger.info(`[CoreAgent] Serving web UI from ${staticPath}`);
+    } else {
+      logger.warn(
+        `[CoreAgent] Web UI not found. Checked paths: ${possiblePaths.join(', ')}. Run 'npm run build' in packages/web-ui to build the frontend.`,
+      );
+    }
+
     return expressApp;
   } catch (error) {
     logger.error('[CoreAgent] Error during startup:', error);
