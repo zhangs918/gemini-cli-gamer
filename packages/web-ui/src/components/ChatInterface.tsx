@@ -30,6 +30,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // Load messages for current conversation
   useEffect(() => {
+    // Clear streaming state when switching conversations
+    setCurrentStreamingContent('');
+    setCurrentStreamingId(null);
+    setIsLoading(false);
+    setPendingToolCall(null);
+
     if (conversationId) {
       const saved = localStorage.getItem(`gemini-messages-${conversationId}`);
       if (saved) {
@@ -87,27 +93,34 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setCurrentStreamingContent('');
     setCurrentStreamingId(null);
 
+    // Use refs to track streaming content to avoid closure issues
+    let streamingMessageId: string | null = null;
+    let streamingContent = '';
+
     try {
       const handleStream = (event: StreamEvent) => {
         if (event.type === 'text') {
           const data = event.data as { content?: string; messageId?: string };
           const { content, messageId } = data;
           if (messageId) {
+            streamingMessageId = messageId;
             setCurrentStreamingId(messageId);
           }
           if (content) {
-            setCurrentStreamingContent((prev) => prev + content);
+            streamingContent += content;
+            setCurrentStreamingContent(streamingContent);
           }
         } else if (event.type === 'tool_call') {
           const toolCall = event.data as ToolCall;
           setPendingToolCall(toolCall);
           setIsLoading(false);
         } else if (event.type === 'done') {
-          if (currentStreamingId && currentStreamingContent) {
+          // Use the refs values instead of state values to avoid closure issues
+          if (streamingMessageId && streamingContent) {
             const assistantMessage: ChatMessage = {
-              id: currentStreamingId,
+              id: streamingMessageId,
               role: 'assistant',
-              content: currentStreamingContent,
+              content: streamingContent,
               timestamp: Date.now(),
             };
             setMessages((prev) => [...prev, assistantMessage]);
