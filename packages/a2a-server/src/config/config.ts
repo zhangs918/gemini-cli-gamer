@@ -77,7 +77,7 @@ function findProjectRoot(startDir: string): string {
 }
 
 /**
- * 获取 @projects 目录路径
+ * 获取 projects 目录路径
  * 不依赖于当前工作目录，而是基于文件系统结构查找项目根目录
  */
 export function getProjectsBaseDir(): string {
@@ -97,25 +97,25 @@ export function getProjectsBaseDir(): string {
   }
 
   const projectRoot = findProjectRoot(startDir);
-  const atProjectsDir = path.resolve(projectRoot, '@projects');
+  const projectsDir = path.resolve(projectRoot, 'projects');
 
-  // 始终返回 @projects 目录（即使不存在，后续 createSessionWorkDir 会创建）
+  // 始终返回 projects 目录（即使不存在，后续 createSessionWorkDir 会创建）
   logger.info(
-    `[Config] Project root: ${projectRoot}, @projects dir: ${atProjectsDir}`,
+    `[Config] Project root: ${projectRoot}, projects dir: ${projectsDir}`,
   );
-  return atProjectsDir;
+  return projectsDir;
 }
 
 /**
  * 为新会话创建专用工作目录
- * 在 @projects 下创建一个 8 位随机字符命名的文件夹
+ * 在 projects 下创建一个 8 位随机字符命名的文件夹
  */
 export function createSessionWorkDir(): string {
   const baseDir = getProjectsBaseDir();
   const sessionDirName = generateRandomId(8);
   const sessionDir = path.resolve(baseDir, sessionDirName);
 
-  // 确保 @projects 目录存在
+  // 确保 projects 目录存在
   if (!fs.existsSync(baseDir)) {
     fs.mkdirSync(baseDir, { recursive: true });
     logger.info(`[Config] Created projects base directory: ${baseDir}`);
@@ -375,26 +375,11 @@ export function setTargetDir(agentSettings: AgentSettings | undefined): string {
       : undefined);
 
   if (!targetDir) {
-    // 默认使用项目根目录下的 @projects 文件夹
-    const defaultDir = getProjectsBaseDir();
-
-    // 如果默认目录存在，使用它；否则使用原始工作目录
-    if (fs.existsSync(defaultDir)) {
-      logger.info(
-        `[CoderAgentExecutor] Using default workspace directory: ${defaultDir}`,
-      );
-      try {
-        process.chdir(defaultDir);
-        return defaultDir;
-      } catch (e) {
-        logger.warn(
-          `[CoderAgentExecutor] Error changing to default workspace directory: ${e}, using original cwd`,
-        );
-        return originalCWD;
-      }
-    }
-
-    // 如果 @projects 不存在，使用原始工作目录
+    // 服务启动时不改变工作目录，因为每个会话需要独立的工作目录
+    // 会话工作目录由 createSessionWorkDir() 在会话创建时设置
+    logger.info(
+      `[CoderAgentExecutor] Using original cwd as server base directory: ${originalCWD}`,
+    );
     return originalCWD;
   }
 
