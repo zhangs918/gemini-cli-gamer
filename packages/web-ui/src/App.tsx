@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Sidebar, { type Conversation } from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import WebView from './components/WebView';
 import './App.css';
 
 function App() {
@@ -80,11 +81,16 @@ function App() {
         onSelectConversation={handleSelectConversation}
       />
       <main className="app-main">
-        <ChatInterface
-          conversationId={currentConversationId}
-          onUpdateTitle={handleUpdateConversationTitle}
-          onAddMessage={handleAddMessage}
-        />
+        <div className="app-main-left">
+          <ChatInterface
+            conversationId={currentConversationId}
+            onUpdateTitle={handleUpdateConversationTitle}
+            onAddMessage={handleAddMessage}
+          />
+        </div>
+        <div className="app-main-right">
+          <WebView />
+        </div>
       </main>
     </div>
   );
