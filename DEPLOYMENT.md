@@ -446,15 +446,29 @@ pm2 logs gemini-cli-web-ui
 
 ## 防火墙配置
 
+### 云服务器安全组配置
+
+**重要**: 如果使用阿里云、腾讯云等云服务器，需要先在云控制台配置安全组规则：
+
+- **阿里云**: 参考 [ALIYUN_NETWORK_SETUP.md](./ALIYUN_NETWORK_SETUP.md)
+- **腾讯云**: 在安全组中添加端口 41242 的入站规则
+- **AWS**: 在 Security Group 中添加端口 41242 的 Inbound 规则
+
+### 服务器防火墙配置
+
 确保防火墙允许访问配置的端口：
 
 ```bash
 # Ubuntu/Debian
 sudo ufw allow 41242/tcp
 
-# CentOS/RHEL
-sudo firewall-cmd --add-port=41242/tcp --permanent
+# CentOS/RHEL 7+ (firewalld)
+sudo firewall-cmd --permanent --add-port=41242/tcp
 sudo firewall-cmd --reload
+
+# CentOS/RHEL 6 (iptables)
+sudo iptables -I INPUT -p tcp --dport 41242 -j ACCEPT
+sudo service iptables save
 ```
 
 ## 安全建议
