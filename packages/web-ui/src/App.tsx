@@ -1,8 +1,8 @@
 /* eslint-disable */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar, { type Conversation } from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
-import WebView from './components/WebView';
+import WebView, { type WebViewHandle } from './components/WebView';
 import { apiClient } from './services/api';
 import './App.css';
 
@@ -12,6 +12,7 @@ function App() {
     string | null
   >(null);
   const [isLoading, setIsLoading] = useState(true);
+  const webViewRef = useRef<WebViewHandle>(null);
 
   // 从后端加载会话列表
   useEffect(() => {
@@ -92,6 +93,11 @@ function App() {
     }
   }, [currentConversationId]);
 
+  // AI回复完成后触发WebView重新加载
+  const handleMessageComplete = useCallback(() => {
+    webViewRef.current?.reload();
+  }, []);
+
   if (isLoading) {
     return (
       <div className="app loading">
@@ -120,10 +126,11 @@ function App() {
             onUpdateTitle={handleUpdateConversationTitle}
             onAddMessage={handleAddMessage}
             onSessionCreated={handleSessionCreated}
+            onMessageComplete={handleMessageComplete}
           />
         </div>
         <div className="app-main-right">
-          <WebView workDir={currentConversation?.workDir} />
+          <WebView ref={webViewRef} workDir={currentConversation?.workDir} />
         </div>
       </main>
     </div>

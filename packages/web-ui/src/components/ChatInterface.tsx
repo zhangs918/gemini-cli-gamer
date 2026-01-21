@@ -17,6 +17,7 @@ interface ChatInterfaceProps {
   onUpdateTitle?: (id: string, title: string) => void;
   onAddMessage?: () => void;
   onSessionCreated?: (sessionId: string, workDir: string) => void;
+  onMessageComplete?: () => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -24,6 +25,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onUpdateTitle,
   onAddMessage,
   onSessionCreated,
+  onMessageComplete,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -179,6 +181,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           setCurrentStreamingContent('');
           setCurrentThoughts([]);
           setIsLoading(false);
+          // AI 回复完成后触发重新加载
+          onMessageComplete?.();
         } else if (event.type === 'error') {
           console.error('Stream error:', event.data);
           setIsLoading(false);

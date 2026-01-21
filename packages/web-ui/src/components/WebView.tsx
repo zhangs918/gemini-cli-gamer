@@ -1,12 +1,22 @@
 /* eslint-disable */
-import React, { useRef, useCallback, useMemo } from 'react';
+import {
+  useRef,
+  useCallback,
+  useMemo,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
 import './WebView.css';
 
 interface WebViewProps {
   workDir?: string;
 }
 
-const WebView: React.FC<WebViewProps> = ({ workDir }) => {
+export interface WebViewHandle {
+  reload: () => void;
+}
+
+const WebView = forwardRef<WebViewHandle, WebViewProps>(({ workDir }, ref) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // 从 workDir 中提取 projectId（最后一段路径）
@@ -35,6 +45,15 @@ const WebView: React.FC<WebViewProps> = ({ workDir }) => {
       }, 50);
     }
   }, []);
+
+  // 暴露 reload 方法给父组件
+  useImperativeHandle(
+    ref,
+    () => ({
+      reload: handleReload,
+    }),
+    [handleReload],
+  );
 
   // 复制 web view URL 到剪切板
   const handleShare = useCallback(async () => {
@@ -105,6 +124,8 @@ const WebView: React.FC<WebViewProps> = ({ workDir }) => {
       )}
     </div>
   );
-};
+});
+
+WebView.displayName = 'WebView';
 
 export default WebView;
