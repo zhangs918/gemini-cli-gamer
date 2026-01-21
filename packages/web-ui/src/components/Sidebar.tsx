@@ -89,8 +89,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     <div className="sidebar">
       <div className="sidebar-header">
         <div className="sidebar-logo">
-          <div className="logo-icon">G</div>
-          <span className="logo-text">Gemini CLI</span>
+          <div className="logo-icon">W</div>
+          <span className="logo-text">Wanaka</span>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               strokeLinecap="round"
             />
           </svg>
-          开启新对话
+          开启新游戏
         </button>
 
         <div className="conversations-list">
