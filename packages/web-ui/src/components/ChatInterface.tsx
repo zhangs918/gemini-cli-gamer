@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import ToolConfirmation from './ToolConfirmation';
@@ -35,6 +35,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 从后端加载消息
@@ -65,31 +66,35 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [conversationId]);
 
-  const scrollToBottom = (immediate = false) => {
+  const scrollToBottom = useCallback((immediate = false) => {
     // 清除之前的定时器
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
 
-    // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
+    // 直接操作滚动容器，更可靠
     const scroll = () => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      const container = messagesContainerRef.current;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
     };
 
     if (immediate) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(scroll);
-      });
+      // 使用多个 setTimeout 确保 DOM 已完全更新
+      setTimeout(() => {
+        scroll();
+        // 再次滚动以确保
+        setTimeout(scroll, 50);
+      }, 0);
     } else {
-      scrollTimeoutRef.current = setTimeout(() => {
-        requestAnimationFrame(scroll);
-      }, 50);
+      scrollTimeoutRef.current = setTimeout(scroll, 50);
     }
-  };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, currentStreamingContent]);
+  }, [messages, currentStreamingContent, currentThoughts, scrollToBottom]);
 
   // 组件卸载时清理定时器
   useEffect(() => {
@@ -150,6 +155,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           const data = event.data as { thought?: ThoughtSummary };
           if (data.thought) {
             setCurrentThoughts((prev) => [...prev, data.thought!]);
+            // 思考更新时也滚动到底部（使用立即滚动）
+            scrollToBottom(true);
           }
         } else if (event.type === 'tool_call') {
           const toolCall = event.data as ToolCall;
@@ -254,7 +261,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="chat-interface">
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.length === 0 && !isLoading ? (
           <div className="empty-chat">
             <div className="empty-icon">G</div>
