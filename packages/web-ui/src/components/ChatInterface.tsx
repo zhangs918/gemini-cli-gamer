@@ -148,7 +148,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
-    setCurrentStreamingContent('');
+    // 立即触发 streaming UI（点点点），避免依赖后端首包是否被缓冲
+    // 注意：最终落库的 assistant 内容来自 streamingContent 变量，不会包含这里的占位空格
+    setCurrentStreamingContent(' ');
     setCurrentThoughts([]);
 
     // 用户发送消息后立即滚动到底部
@@ -227,6 +229,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           onMessageComplete?.();
         } else if (event.type === 'error') {
           console.error('Stream error:', event.data);
+          setCurrentStreamingContent('');
+          setCurrentThoughts([]);
           setIsLoading(false);
         }
       };
