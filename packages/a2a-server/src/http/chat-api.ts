@@ -33,6 +33,75 @@ import {
 } from '../storage/session-store.js';
 import { convertToClientHistory } from '../utils/historyConverter.js';
 
+/**
+ * 从 MIME 类型获取文件扩展名
+ */
+function getExtensionFromMimeType(mimeType: string): string {
+  const mimeToExt: Record<string, string> = {
+    // 图片
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/svg+xml': '.svg',
+    // 视频
+    'video/mp4': '.mp4',
+    'video/webm': '.webm',
+    'video/quicktime': '.mov',
+    'video/x-msvideo': '.avi',
+    // 音频
+    'audio/mpeg': '.mp3',
+    'audio/wav': '.wav',
+    'audio/ogg': '.ogg',
+    'audio/webm': '.weba',
+    'audio/x-m4a': '.m4a',
+    // 文档
+    'application/pdf': '.pdf',
+  };
+
+  return mimeToExt[mimeType] || '.bin';
+}
+
+/**
+ * 保存多模态文件到会话工作目录
+ * @param inlineData - 包含 base64 数据和 mimeType 的对象
+ * @param workDir - 会话工作目录的完整路径
+ * @returns 保存的文件路径（相对于工作目录）
+ */
+function saveMultimodalFile(
+  inlineData: { data: string; mimeType: string },
+  workDir: string,
+): string {
+  try {
+    // 确保工作目录存在
+    if (!fs.existsSync(workDir)) {
+      fs.mkdirSync(workDir, { recursive: true });
+    }
+
+    // 生成唯一文件名
+    const extension = getExtensionFromMimeType(inlineData.mimeType);
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const fileName = `upload_${timestamp}_${randomId}${extension}`;
+    const filePath = path.join(workDir, fileName);
+
+    // 解码 base64 数据
+    const buffer = Buffer.from(inlineData.data, 'base64');
+
+    // 保存文件
+    fs.writeFileSync(filePath, buffer);
+
+    logger.info(
+      `[ChatAPI] Saved multimodal file: ${fileName} (${(buffer.length / 1024).toFixed(2)} KB) to ${workDir}`,
+    );
+
+    return fileName; // 返回相对路径
+  } catch (error) {
+    logger.error('[ChatAPI] Error saving multimodal file:', error);
+    throw error;
+  }
+}
+
 interface ChatSession {
   id: string;
   task: Task;
@@ -319,15 +388,6 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
       const session = await getOrCreateSession(sessionId, config);
       const promptId = uuidv4();
 
-      // 保存用户消息到持久化存储
-      const userMessage: StoredMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: message,
-        timestamp: Date.now(),
-      };
-      store.addMessage(session.id, userMessage);
-
       // Set SSE response headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
@@ -360,6 +420,57 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
           parts && Array.isArray(parts) && parts.length > 0
             ? parts
             : [{ text: message }];
+
+        // 保存多模态文件到工作目录
+        const savedFiles: string[] = [];
+        const workDirPath = store.getWorkDirPath(session.id);
+        if (workDirPath && requestParts.length > 0) {
+          for (const part of requestParts) {
+            if (part && typeof part === 'object' && 'inlineData' in part) {
+              try {
+                const fileName = saveMultimodalFile(
+                  part.inlineData as { data: string; mimeType: string },
+                  workDirPath,
+                );
+                savedFiles.push(fileName);
+                logger.info(
+                  `[ChatAPI] Saved multimodal file for session ${session.id}: ${fileName}`,
+                );
+              } catch (error) {
+                logger.error(
+                  `[ChatAPI] Failed to save multimodal file:`,
+                  error,
+                );
+                // 继续处理其他文件，不中断请求
+              }
+            }
+          }
+        }
+
+        // 如果有文件被保存，记录到日志
+        if (savedFiles.length > 0) {
+          logger.info(
+            `[ChatAPI] Saved ${savedFiles.length} multimodal file(s) to ${workDirPath}`,
+          );
+        }
+
+        // 构建用户消息内容（包含文件信息）
+        let userMessageContent = message || '';
+        if (savedFiles.length > 0) {
+          const fileList = savedFiles.map((f) => `@${f}`).join(' ');
+          userMessageContent = userMessageContent
+            ? `${fileList}\n${userMessageContent}`
+            : fileList;
+        }
+
+        // 保存用户消息到持久化存储
+        const userMessage: StoredMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: userMessageContent,
+          timestamp: Date.now(),
+        };
+        store.addMessage(session.id, userMessage);
 
         fullResponse = await processMessageWithToolLoop(
           session.task,
