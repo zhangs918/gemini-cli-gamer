@@ -40,9 +40,23 @@ else
     echo "✅ 后端已构建"
 fi
 
+# 设置默认值（如果未在 .env 中设置）
+CODER_AGENT_PORT=${CODER_AGENT_PORT:-41242}
+CODER_AGENT_HOST=${CODER_AGENT_HOST:-localhost}
+CODER_AGENT_PUBLIC_HOST=${CODER_AGENT_PUBLIC_HOST:-$CODER_AGENT_HOST}
+
 # 启动服务器
 echo "🌐 启动服务器..."
-echo "访问地址: http://localhost:41242"
+if [ "$CODER_AGENT_HOST" = "0.0.0.0" ]; then
+    echo "监听地址: 0.0.0.0:$CODER_AGENT_PORT (允许外部访问)"
+    if [ -n "$CODER_AGENT_PUBLIC_HOST" ] && [ "$CODER_AGENT_PUBLIC_HOST" != "0.0.0.0" ]; then
+        echo "访问地址: http://$CODER_AGENT_PUBLIC_HOST:$CODER_AGENT_PORT"
+    else
+        echo "访问地址: http://<服务器IP>:$CODER_AGENT_PORT"
+    fi
+else
+    echo "访问地址: http://localhost:$CODER_AGENT_PORT (仅本地访问)"
+fi
 echo ""
 echo "按 Ctrl+C 停止服务器"
 echo ""

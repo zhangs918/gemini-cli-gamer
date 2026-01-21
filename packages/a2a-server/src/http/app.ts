@@ -55,7 +55,7 @@ const coderAgentCard: AgentCard = {
   name: 'Gemini SDLC Agent',
   description:
     'An agent that generates code based on natural language instructions and streams file outputs.',
-  url: 'http://localhost:41242/',
+  url: process.env['CODER_AGENT_URL'] || 'http://localhost:41242/',
   provider: {
     organization: 'Google',
     url: 'https://google.com',
@@ -89,8 +89,11 @@ const coderAgentCard: AgentCard = {
   supportsAuthenticatedExtendedCard: false,
 };
 
-export function updateCoderAgentCardUrl(port: number) {
-  coderAgentCard.url = `http://localhost:${port}/`;
+export function updateCoderAgentCardUrl(port: number, host?: string) {
+  const hostname = host || process.env['CODER_AGENT_HOST'] || 'localhost';
+  // 如果 hostname 是 0.0.0.0，使用 localhost（用于本地开发）
+  const displayHost = hostname === '0.0.0.0' ? 'localhost' : hostname;
+  coderAgentCard.url = `http://${displayHost}:${port}/`;
 }
 
 async function handleExecuteCommand(
@@ -532,8 +535,11 @@ export async function main() {
   try {
     const expressApp = await createApp();
     const port = Number(process.env['CODER_AGENT_PORT'] || 0);
+    // 支持通过环境变量配置监听地址，默认为 localhost（本地开发）
+    // 设置为 0.0.0.0 可允许外部访问（生产环境）
+    const host = process.env['CODER_AGENT_HOST'] || 'localhost';
 
-    const server = expressApp.listen(port, 'localhost', () => {
+    const server = expressApp.listen(port, host, () => {
       const address = server.address();
       let actualPort;
       if (process.env['CODER_AGENT_PORT']) {
@@ -543,12 +549,28 @@ export async function main() {
       } else {
         throw new Error('[Core Agent] Could not find port number.');
       }
-      updateCoderAgentCardUrl(Number(actualPort));
+
+      // 确定用于显示和 Agent Card 的主机地址
+      // 如果监听在 0.0.0.0，尝试获取实际的外部访问地址
+      let displayHost = host;
+      if (host === '0.0.0.0') {
+        // 尝试从环境变量获取外部访问地址，如果没有则使用 localhost
+        displayHost = process.env['CODER_AGENT_PUBLIC_HOST'] || 'localhost';
+      }
+
+      updateCoderAgentCardUrl(Number(actualPort), displayHost);
+
+      const serverUrl = `http://${displayHost}:${actualPort}`;
       logger.info(
-        `[CoreAgent] Agent Server started on http://localhost:${actualPort}`,
+        `[CoreAgent] Agent Server started on http://${host}:${actualPort}`,
       );
+      if (host === '0.0.0.0') {
+        logger.info(
+          `[CoreAgent] Server is accessible externally at ${serverUrl}`,
+        );
+      }
       logger.info(
-        `[CoreAgent] Agent Card: http://localhost:${actualPort}/.well-known/agent-card.json`,
+        `[CoreAgent] Agent Card: ${serverUrl}/.well-known/agent-card.json`,
       );
       logger.info('[CoreAgent] Press Ctrl+C to stop the server');
     });
