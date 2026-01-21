@@ -336,9 +336,11 @@ export async function createApp() {
     });
 
     // 设置会话上下文（用于创建独立的会话工作目录）
+    // 传递 extensions 数组，而不是 ExtensionLoader 实例
+    // 因为每个会话需要独立的 ExtensionLoader 实例（ExtensionLoader.start() 只能调用一次）
     setSessionContext({
       settings,
-      extensionLoader: new SimpleExtensionLoader(extensions),
+      extensions,
       baseConfig: config,
     });
 

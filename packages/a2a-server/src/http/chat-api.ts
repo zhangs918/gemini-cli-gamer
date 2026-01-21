@@ -9,8 +9,9 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   Config,
   ToolCallRequestInfo,
-  ExtensionLoader,
+  GeminiCLIExtension,
 } from '@google/gemini-cli-core';
+import { SimpleExtensionLoader } from '@google/gemini-cli-core';
 import { GeminiEventType, executeToolCall } from '@google/gemini-cli-core';
 import type { Part } from '@google/genai';
 import { logger } from '../utils/logger.js';
@@ -32,7 +33,7 @@ const sessions = new Map<string, ChatSession>();
 // 会话创建所需的上下文
 interface SessionContext {
   settings: Settings;
-  extensionLoader: ExtensionLoader;
+  extensions: GeminiCLIExtension[]; // 存储 extensions 数组，而不是 ExtensionLoader 实例
   baseConfig: Config; // 用于获取认证等信息
 }
 
@@ -74,9 +75,15 @@ async function getOrCreateSession(
     );
   }
 
+  // 为每个会话创建独立的 ExtensionLoader 实例
+  // 因为 ExtensionLoader.start() 只能调用一次，每个 Config 需要独立的实例
+  const sessionExtensionLoader = new SimpleExtensionLoader(
+    sessionContext.extensions,
+  );
+
   const config = await createSessionConfig(
     sessionContext.settings,
-    sessionContext.extensionLoader,
+    sessionExtensionLoader,
     newSessionId,
     workDir,
   );
