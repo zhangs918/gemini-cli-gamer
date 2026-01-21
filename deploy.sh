@@ -62,7 +62,8 @@ echo ""
 
 # 4. 构建前端
 echo "🔨 构建前端..."
-if [ ! -d "packages/web-ui/dist" ]; then
+if [ ! -f "packages/web-ui/dist/index.html" ]; then
+    echo "   正在构建前端..."
     cd packages/web-ui
     npm run build
     cd ../..
@@ -74,12 +75,32 @@ echo ""
 
 # 5. 构建后端
 echo "🔨 构建后端..."
-if [ ! -d "packages/a2a-server/dist" ]; then
+if [ ! -f "packages/a2a-server/dist/src/http/server.js" ]; then
+    echo "   正在构建后端..."
     npm run build --workspace @google/gemini-cli-a2a-server
     echo "✅ 后端构建完成"
 else
     echo "✅ 后端已构建，跳过..."
 fi
+echo ""
+
+# 验证构建结果
+echo "🔍 验证构建结果..."
+if [ ! -f "packages/web-ui/dist/index.html" ]; then
+    echo "❌ 错误: 前端构建失败，未找到 packages/web-ui/dist/index.html"
+    exit 1
+fi
+
+if [ ! -f "packages/a2a-server/dist/src/http/server.js" ]; then
+    echo "❌ 错误: 后端构建失败，未找到 packages/a2a-server/dist/src/http/server.js"
+    echo "   正在重新构建后端..."
+    npm run build --workspace @google/gemini-cli-a2a-server
+    if [ ! -f "packages/a2a-server/dist/src/http/server.js" ]; then
+        echo "❌ 错误: 后端构建仍然失败，请检查构建日志"
+        exit 1
+    fi
+fi
+echo "✅ 构建验证通过"
 echo ""
 
 # 6. 显示启动信息
