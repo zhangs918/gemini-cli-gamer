@@ -34,7 +34,7 @@ import {
 } from '@google/gemini-cli-core';
 import type { Command, CommandArgument } from '../commands/types.js';
 import { GitService } from '@google/gemini-cli-core';
-import { setupChatRoutes } from './chat-api.js';
+import { setupChatRoutes, setSessionContext } from './chat-api.js';
 
 type CommandResponse = {
   name: string;
@@ -157,6 +157,9 @@ async function handleExecuteCommand(
 
 export async function createApp() {
   try {
+    // 保存原始工作目录（在 setTargetDir 改变之前）
+    const originalCwd = process.cwd();
+
     // Load the server configuration once on startup.
     const workspaceRoot = setTargetDir(undefined);
     loadEnvironment();
@@ -332,6 +335,13 @@ export async function createApp() {
       res.json({ metadata: await wrapper.task.getMetadata() });
     });
 
+    // 设置会话上下文（用于创建独立的会话工作目录）
+    setSessionContext({
+      settings,
+      extensionLoader: new SimpleExtensionLoader(extensions),
+      baseConfig: config,
+    });
+
     // 设置聊天 API 路由
     setupChatRoutes(expressApp, config);
 
@@ -341,10 +351,15 @@ export async function createApp() {
     const fs = await import('node:fs');
 
     // 找到项目根目录（包含 package.json 的目录）
-    let projectRoot = process.cwd();
+    // 使用原始工作目录，因为 setTargetDir 可能已经改变了 process.cwd()
+    let projectRoot = originalCwd;
     // 如果当前目录是 packages/a2a-server，需要回到项目根目录
     if (projectRoot.endsWith('packages/a2a-server')) {
       projectRoot = path.resolve(projectRoot, '../..');
+    }
+    // 如果原始目录已经是 @projects 或 projects，需要回到项目根目录
+    if (projectRoot.endsWith('@projects') || projectRoot.endsWith('projects')) {
+      projectRoot = path.resolve(projectRoot, '..');
     }
 
     // 尝试多个可能的路径（开发模式和构建模式）
@@ -373,23 +388,66 @@ export async function createApp() {
     // 检查 web-ui 是否已构建
     if (webUiDistPath && fs.existsSync(webUiDistPath)) {
       const staticPath = webUiDistPath; // 保存为局部变量
-      expressApp.use(express.static(staticPath));
-      // SPA 路由回退 - 所有非 API 路由返回 index.html
-      // 使用 use 而不是 get，避免 path-to-regexp 错误
+      const indexHtmlPath = path.join(staticPath, 'index.html');
+
+      // 静态文件服务（必须在 SPA 回退之前）
+      expressApp.use(
+        express.static(staticPath, {
+          index: false, // 禁用默认的 index.html，我们手动处理
+        }),
+      );
+
+      // SPA 路由回退 - 所有非 API 和非静态资源的路由返回 index.html
+      // 使用中间件方式，在所有路由之后处理
       expressApp.use((req, res, next) => {
+        // 只处理 GET 请求
+        if (req.method !== 'GET') {
+          return next();
+        }
+
+        // 跳过 API 路由和 .well-known 路由
         if (
           req.path.startsWith('/api') ||
           req.path.startsWith('/.well-known')
         ) {
           return next();
         }
-        res.sendFile(path.join(staticPath, 'index.html'));
+
+        // 检查是否是静态资源请求（已有文件扩展名）
+        const ext = path.extname(req.path);
+        if (ext && ext !== '.html') {
+          // 有扩展名但不是 .html，说明是静态资源，让 express.static 处理
+          return next();
+        }
+
+        // 设置 CSP 响应头（仅对 HTML 页面）
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' ws: wss: http: https:;",
+        );
+
+        // 返回 index.html（SPA 路由）
+        res.sendFile(indexHtmlPath, (err) => {
+          if (err) {
+            logger.error(`[CoreAgent] Error sending index.html: ${err}`);
+            if (!res.headersSent) {
+              res.status(500).send('Internal Server Error');
+            }
+          }
+        });
       });
+
       logger.info(`[CoreAgent] Serving web UI from ${staticPath}`);
     } else {
       logger.warn(
         `[CoreAgent] Web UI not found. Checked paths: ${possiblePaths.join(', ')}. Run 'npm run build' in packages/web-ui to build the frontend.`,
       );
+      // 即使没有找到 web-ui，也要处理根路径，避免 404
+      expressApp.get('/', (req, res) => {
+        res
+          .status(503)
+          .send('Web UI not found. Please build the frontend first.');
+      });
     }
 
     return expressApp;

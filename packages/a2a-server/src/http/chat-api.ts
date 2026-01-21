@@ -6,24 +6,48 @@
 
 import type express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import type { Config, ToolCallRequestInfo } from '@google/gemini-cli-core';
+import type {
+  Config,
+  ToolCallRequestInfo,
+  ExtensionLoader,
+} from '@google/gemini-cli-core';
 import { GeminiEventType, executeToolCall } from '@google/gemini-cli-core';
 import type { Part } from '@google/genai';
 import { logger } from '../utils/logger.js';
 import { Task } from '../agent/task.js';
+import { createSessionWorkDir, createSessionConfig } from '../config/config.js';
+import type { Settings } from '../config/settings.js';
 
 interface ChatSession {
   id: string;
   task: Task;
+  config: Config;
+  workDir: string;
   createdAt: number;
 }
 
 // 简单的内存会话存储（生产环境应使用 Redis 等）
 const sessions = new Map<string, ChatSession>();
 
+// 会话创建所需的上下文
+interface SessionContext {
+  settings: Settings;
+  extensionLoader: ExtensionLoader;
+  baseConfig: Config; // 用于获取认证等信息
+}
+
+let sessionContext: SessionContext | undefined;
+
+/**
+ * 设置会话创建所需的上下文
+ */
+export function setSessionContext(context: SessionContext): void {
+  sessionContext = context;
+}
+
 async function getOrCreateSession(
   sessionId: string | undefined,
-  config: Config,
+  _baseConfig: Config,
 ): Promise<ChatSession> {
   if (sessionId && sessions.has(sessionId)) {
     const session = sessions.get(sessionId)!;
@@ -36,6 +60,26 @@ async function getOrCreateSession(
 
   const newSessionId = sessionId || uuidv4();
   const contextId = uuidv4();
+
+  // 为新会话创建专用工作目录
+  const workDir = createSessionWorkDir();
+  logger.info(
+    `[ChatAPI] New session ${newSessionId} using work directory: ${workDir}`,
+  );
+
+  // 为会话创建独立的 Config
+  if (!sessionContext) {
+    throw new Error(
+      '[ChatAPI] Session context not set. This should not happen. Please ensure setSessionContext() is called during app initialization.',
+    );
+  }
+
+  const config = await createSessionConfig(
+    sessionContext.settings,
+    sessionContext.extensionLoader,
+    newSessionId,
+    workDir,
+  );
 
   // Use Task class to handle complete tool execution loop
   const task = await Task.create(
@@ -51,6 +95,8 @@ async function getOrCreateSession(
   const session: ChatSession = {
     id: newSessionId,
     task,
+    config,
+    workDir,
     createdAt: Date.now(),
   };
   sessions.set(newSessionId, session);
