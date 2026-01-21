@@ -39,6 +39,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevConversationIdRef = useRef<string | null>(null);
+  const isLoadingRef = useRef(false);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   // 从后端加载消息
   useEffect(() => {
@@ -48,7 +53,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // 关键修复：新会话在发送中被创建时（conversationId 从 null 变成新 id），
     // 如果正在加载中，不要清空流式状态和重载消息，否则会导致等待状态消失
     const isCreatingSessionDuringSend =
-      prevConversationId === null && conversationId && isLoading;
+      prevConversationId === null && conversationId && isLoadingRef.current;
 
     if (!isCreatingSessionDuringSend) {
       setCurrentStreamingContent('');
@@ -77,7 +82,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setMessages([]);
       setSessionId(null);
     }
-  }, [conversationId, isLoading]);
+  }, [conversationId]);
 
   const scrollToBottom = useCallback((immediate = false) => {
     // 清除之前的定时器
