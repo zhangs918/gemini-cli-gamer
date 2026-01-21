@@ -73,10 +73,21 @@ else
 fi
 echo ""
 
-# 5. 构建后端
+# 5. 构建核心包（a2a-server 的依赖）
+echo "🔨 构建核心包..."
+if [ ! -f "packages/core/dist/index.js" ]; then
+    echo "   正在构建 @google/gemini-cli-core..."
+    npm run build --workspace @google/gemini-cli-core
+    echo "✅ 核心包构建完成"
+else
+    echo "✅ 核心包已构建，跳过..."
+fi
+echo ""
+
+# 6. 构建后端
 echo "🔨 构建后端..."
 if [ ! -f "packages/a2a-server/dist/src/http/server.js" ]; then
-    echo "   正在构建后端..."
+    echo "   正在构建 @google/gemini-cli-a2a-server..."
     npm run build --workspace @google/gemini-cli-a2a-server
     echo "✅ 后端构建完成"
 else
@@ -91,6 +102,16 @@ if [ ! -f "packages/web-ui/dist/index.html" ]; then
     exit 1
 fi
 
+if [ ! -f "packages/core/dist/index.js" ]; then
+    echo "❌ 错误: 核心包构建失败，未找到 packages/core/dist/index.js"
+    echo "   正在重新构建核心包..."
+    npm run build --workspace @google/gemini-cli-core
+    if [ ! -f "packages/core/dist/index.js" ]; then
+        echo "❌ 错误: 核心包构建仍然失败，请检查构建日志"
+        exit 1
+    fi
+fi
+
 if [ ! -f "packages/a2a-server/dist/src/http/server.js" ]; then
     echo "❌ 错误: 后端构建失败，未找到 packages/a2a-server/dist/src/http/server.js"
     echo "   正在重新构建后端..."
@@ -103,7 +124,7 @@ fi
 echo "✅ 构建验证通过"
 echo ""
 
-# 6. 显示启动信息
+# 7. 显示启动信息
 echo "✅ 部署完成！"
 echo ""
 echo "📝 下一步："
