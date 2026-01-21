@@ -33,6 +33,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // 从后端加载消息
   useEffect(() => {
@@ -62,13 +63,40 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [conversationId]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (immediate = false) => {
+    // 清除之前的定时器
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // 使用 requestAnimationFrame 确保 DOM 更新完成后再滚动
+    const scroll = () => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    if (immediate) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scroll);
+      });
+    } else {
+      scrollTimeoutRef.current = setTimeout(() => {
+        requestAnimationFrame(scroll);
+      }, 50);
+    }
   };
 
   useEffect(() => {
     scrollToBottom();
   }, [messages, currentStreamingContent]);
+
+  // 组件卸载时清理定时器
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
@@ -84,6 +112,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setIsLoading(true);
     setCurrentStreamingContent('');
     setCurrentThoughts([]);
+
+    // 用户发送消息后立即滚动到底部
+    scrollToBottom(true);
 
     let streamingMessageId: string | null = null;
     let streamingContent = '';
@@ -110,6 +141,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           if (content) {
             streamingContent += content;
             setCurrentStreamingContent(streamingContent);
+            // 流式内容更新时也滚动到底部（使用节流，避免过于频繁）
+            scrollToBottom();
           }
         } else if (event.type === 'thought') {
           const data = event.data as { thought?: ThoughtSummary };
@@ -139,6 +172,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               const title = content.substring(0, 30);
               onUpdateTitle?.(sessionId, title);
             }
+
+            // AI 回复完成后滚动到底部
+            scrollToBottom(true);
           }
           setCurrentStreamingContent('');
           setCurrentThoughts([]);
@@ -165,6 +201,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       };
       setMessages((prev) => [...prev, errorMessage]);
       setIsLoading(false);
+      // 错误消息添加后也滚动到底部
+      scrollToBottom(true);
     }
   };
 
