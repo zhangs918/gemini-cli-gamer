@@ -240,8 +240,14 @@ export async function createApp() {
     // 用于 WebView 加载项目目录下的文件（如 index.html）
     expressApp.use('/preview/:projectId', (req, res, _next) => {
       const { projectId } = req.params;
-      // 从 URL 中获取文件路径（去掉前导斜杠）
-      const filePath = req.path.slice(1) || 'index.html';
+      // 从 URL 中提取文件路径：去掉 /preview/${projectId} 前缀
+      // 例如：/preview/abc123/index.html -> index.html
+      const previewPrefix = `/preview/${projectId}`;
+      let filePath = req.path.startsWith(previewPrefix)
+        ? req.path.slice(previewPrefix.length)
+        : req.path;
+      // 去掉前导斜杠，如果为空则默认为 index.html
+      filePath = filePath.replace(/^\//, '') || 'index.html';
       const fullPath = path.join(projectsDir, projectId, filePath);
 
       // 安全检查：确保请求的文件在项目目录内
