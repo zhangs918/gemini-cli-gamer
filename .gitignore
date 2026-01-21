@@ -60,3 +60,7 @@ patch_output.log
 .gemini-clipboard/
 .eslintcache
 evals/logs/
+
+# WebUI session directories
+projects/
+@projects/
