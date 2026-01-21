@@ -639,7 +639,7 @@ export async function loadCliConfig(
       : specifiedModel || defaultModel;
 
   // 打印当前使用的模型
-  debugLogger.info(`[Gemini CLI] 当前使用的模型: ${resolvedModel}`);
+  debugLogger.log(`[Gemini CLI] 当前使用的模型: ${resolvedModel}`);
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
   const screenReader =
