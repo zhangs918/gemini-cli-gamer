@@ -142,13 +142,14 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
 
       try {
         // Process message with complete tool execution loop
+        // 使用会话的 config（包含正确的 targetDir），而不是全局 config
         await processMessageWithToolLoop(
           session.task,
           message,
           promptId,
           abortController.signal,
           res,
-          config,
+          session.config,
         );
 
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
