@@ -195,3 +195,73 @@
   font-size: 12px;
 }
 
+/* 消息附件样式 */
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.message-attachment {
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.attachment-preview-image {
+  max-width: 300px;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  display: block;
+}
+
+.attachment-preview-video {
+  max-width: 300px;
+  max-height: 200px;
+  border-radius: 8px;
+  display: block;
+}
+
+.attachment-preview-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.attachment-file-icon {
+  font-size: 24px;
+}
+
+.attachment-file-name {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.8;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 用户消息中的附件 */
+.message-user .message-attachment {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.message-user .attachment-preview-file {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* AI 消息中的附件 */
+.message-assistant .message-attachment {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.message-assistant .attachment-preview-file {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+

@@ -295,9 +295,24 @@ export async function createApp() {
       });
     });
 
+    // ============================================================
+    // 重要：Chat API 路由必须在 A2AExpressApp.setupRoutes 之前注册！
+    // 因为 A2A SDK 会在根路径 '' 挂载一个 router，该 router 使用默认 100kb 限制的 express.json()
+    // 如果 chat API 路由在 A2A 之后，多模态请求（图片/视频 base64）会被 A2A 的 body-parser 拦截并报错
+    // ============================================================
+
+    // 设置会话上下文（用于创建独立的会话工作目录）
+    setSessionContext({
+      settings,
+      extensions,
+      baseConfig: config,
+    });
+
+    // 设置聊天 API 路由（必须在 A2AExpressApp 之前！）
+    setupChatRoutes(expressApp, config);
+
     const appBuilder = new A2AExpressApp(requestHandler);
     expressApp = appBuilder.setupRoutes(expressApp, '');
-    expressApp.use(express.json());
 
     expressApp.post('/tasks', async (req, res) => {
       try {
@@ -412,18 +427,6 @@ export async function createApp() {
       }
       res.json({ metadata: await wrapper.task.getMetadata() });
     });
-
-    // 设置会话上下文（用于创建独立的会话工作目录）
-    // 传递 extensions 数组，而不是 ExtensionLoader 实例
-    // 因为每个会话需要独立的 ExtensionLoader 实例（ExtensionLoader.start() 只能调用一次）
-    setSessionContext({
-      settings,
-      extensions,
-      baseConfig: config,
-    });
-
-    // 设置聊天 API 路由
-    setupChatRoutes(expressApp, config);
 
     // 静态文件服务 - 服务前端构建产物（必须在所有 API 路由之后）
     // 从当前文件位置计算项目根目录

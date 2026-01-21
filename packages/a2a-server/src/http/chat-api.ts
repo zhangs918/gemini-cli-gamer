@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type express from 'express';
+import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -241,6 +241,9 @@ async function getOrCreateSession(
 export function setupChatRoutes(app: express.Express, config: Config): void {
   const store = getSessionStore();
 
+  // JSON 解析器（普通大小限制，用于非多模态路由）
+  const jsonParser = express.json();
+
   // GET /api/v1/sessions - 获取所有会话
   app.get('/api/v1/sessions', (_req, res) => {
     const sessions = store.listSessions();
@@ -261,7 +264,8 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
   });
 
   // PUT /api/v1/sessions/:sessionId - 更新会话
-  app.put('/api/v1/sessions/:sessionId', (req, res) => {
+  // 需要 jsonParser 来解析 req.body
+  app.put('/api/v1/sessions/:sessionId', jsonParser, (req, res) => {
     const { sessionId } = req.params;
     const { title } = req.body;
 
@@ -289,12 +293,26 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
   });
 
   // POST /api/v1/chat - Send message and get streaming response
-  app.post('/api/v1/chat', async (req, res): Promise<void> => {
+  // 支持多模态：可以发送 message (string) 或 parts (Part[])
+  // 为多模态请求配置更大的请求体限制（图片/视频的 base64 编码可能很大）
+  const largeBodyParser = express.json({ limit: '100mb' });
+  app.post('/api/v1/chat', largeBodyParser, async (req, res): Promise<void> => {
     try {
-      const { message, sessionId } = req.body;
+      const { message, sessionId, parts } = req.body;
 
-      if (!message || typeof message !== 'string') {
-        res.status(400).json({ error: 'Invalid message field' });
+      // 验证输入：至少需要 message 或 parts
+      if (!message && (!parts || !Array.isArray(parts) || parts.length === 0)) {
+        res
+          .status(400)
+          .json({ error: 'Invalid request: message or parts required' });
+        return;
+      }
+
+      // 如果提供了 message，确保它是字符串
+      if (message && typeof message !== 'string') {
+        res
+          .status(400)
+          .json({ error: 'Invalid message field: must be a string' });
         return;
       }
 
@@ -337,9 +355,15 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
       let fullResponse = '';
 
       try {
+        // 构建请求 parts：如果有 parts 直接使用，否则用 message 构建
+        const requestParts: Part[] =
+          parts && Array.isArray(parts) && parts.length > 0
+            ? parts
+            : [{ text: message }];
+
         fullResponse = await processMessageWithToolLoop(
           session.task,
-          message,
+          requestParts,
           promptId,
           abortController.signal,
           res,
@@ -400,7 +424,8 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
   });
 
   // POST /api/v1/tools/confirm - Confirm tool call (not used in YOLO mode)
-  app.post('/api/v1/tools/confirm', async (req, res) => {
+  // 需要 jsonParser 来解析 req.body
+  app.post('/api/v1/tools/confirm', jsonParser, async (req, res) => {
     try {
       const { toolCallId, confirmed, sessionId } = req.body;
 
@@ -445,11 +470,12 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
 
 /**
  * Process message with complete tool execution loop.
+ * Supports multimodal input (text, images, video, audio, PDF).
  * Returns the full response content.
  */
 async function processMessageWithToolLoop(
   task: Task,
-  message: string,
+  messageParts: Part[],
   promptId: string,
   signal: AbortSignal,
   res: express.Response,
@@ -457,7 +483,8 @@ async function processMessageWithToolLoop(
 ): Promise<string> {
   const MAX_TURNS = 50;
   let turnCount = 0;
-  let currentRequest: Part[] = [{ text: message }];
+  // 直接使用传入的 parts（可能包含多模态内容）
+  let currentRequest: Part[] = messageParts;
   let fullContent = '';
 
   while (turnCount < MAX_TURNS) {

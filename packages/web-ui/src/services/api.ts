@@ -1,7 +1,43 @@
 /* eslint-disable */
-import type { ChatMessage, StreamEvent, ApiError } from '../types';
+import type {
+  ChatMessage,
+  StreamEvent,
+  ApiError,
+  MessagePart,
+  Attachment,
+} from '../types';
 
 const API_BASE_URL = '/api/v1';
+
+// 将附件转换为 Gemini API 需要的 Part 格式
+export function attachmentsToParts(attachments: Attachment[]): MessagePart[] {
+  return attachments.map((attachment) => ({
+    inlineData: {
+      data: attachment.data,
+      mimeType: attachment.type,
+    },
+  }));
+}
+
+// 构建发送给服务器的消息 parts
+export function buildMessageParts(
+  text: string,
+  attachments?: Attachment[],
+): MessagePart[] {
+  const parts: MessagePart[] = [];
+
+  // 先添加多模态内容（图片、视频等）
+  if (attachments && attachments.length > 0) {
+    parts.push(...attachmentsToParts(attachments));
+  }
+
+  // 再添加文本内容
+  if (text.trim()) {
+    parts.push({ text });
+  }
+
+  return parts;
+}
 
 export interface SessionMetadata {
   id: string;
@@ -66,6 +102,7 @@ export class ApiClient {
     message: string,
     sessionId?: string,
     onStream?: (event: StreamEvent) => void,
+    attachments?: Attachment[],
   ): Promise<ChatMessage & { sessionId?: string }> {
     // 取消之前的请求
     if (this.abortController) {
@@ -75,15 +112,27 @@ export class ApiClient {
     this.abortController = new AbortController();
 
     try {
+      // 构建请求体
+      const requestBody: {
+        message: string;
+        sessionId?: string;
+        parts?: MessagePart[];
+      } = {
+        message,
+        sessionId,
+      };
+
+      // 如果有附件，构建多模态 parts
+      if (attachments && attachments.length > 0) {
+        requestBody.parts = buildMessageParts(message, attachments);
+      }
+
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          message,
-          sessionId,
-        }),
+        body: JSON.stringify(requestBody),
         signal: this.abortController.signal,
       });
 

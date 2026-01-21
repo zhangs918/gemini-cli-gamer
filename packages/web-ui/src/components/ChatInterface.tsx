@@ -9,6 +9,7 @@ import type {
   StreamEvent,
   ToolCall,
   ThoughtSummary,
+  Attachment,
 } from '../types';
 import './ChatInterface.css';
 
@@ -105,14 +106,32 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     };
   }, []);
 
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim() || isLoading) return;
+  const handleSendMessage = async (
+    content: string,
+    attachments?: Attachment[],
+  ) => {
+    // 允许只有附件没有文本
+    if (
+      (!content.trim() && (!attachments || attachments.length === 0)) ||
+      isLoading
+    )
+      return;
+
+    // 构建用户消息显示内容（包含附件信息）
+    let displayContent = content.trim();
+    if (attachments && attachments.length > 0) {
+      const attachmentInfo = attachments.map((a) => `[${a.name}]`).join(' ');
+      displayContent = displayContent
+        ? `${attachmentInfo}\n${displayContent}`
+        : attachmentInfo;
+    }
 
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: content.trim(),
+      content: displayContent,
       timestamp: Date.now(),
+      attachments, // 保存附件信息用于显示
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -143,12 +162,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }
         } else if (event.type === 'text') {
           const data = event.data as { content?: string; messageId?: string };
-          const { content, messageId } = data;
+          const { content: textContent, messageId } = data;
           if (messageId) {
             streamingMessageId = messageId;
           }
-          if (content) {
-            streamingContent += content;
+          if (textContent) {
+            streamingContent += textContent;
             setCurrentStreamingContent(streamingContent);
             // 流式内容更新时也滚动到底部（使用节流，避免过于频繁）
             scrollToBottom();
@@ -200,10 +219,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         }
       };
 
+      // 发送消息（带附件）
       await apiClient.sendMessage(
         content,
         sessionId || undefined,
         handleStream,
+        attachments,
       );
       onAddMessage?.();
     } catch (error) {
