@@ -77,33 +77,46 @@ function findProjectRoot(startDir: string): string {
 }
 
 /**
+ * 获取项目根目录路径
+ */
+function getProjectRoot(): string {
+  const currentFileDir = path.dirname(url.fileURLToPath(import.meta.url));
+  let startDir = currentFileDir;
+
+  if (currentFileDir.includes('dist')) {
+    startDir = path.resolve(currentFileDir, '../../../..');
+  } else {
+    startDir = path.resolve(currentFileDir, '../../..');
+  }
+
+  return findProjectRoot(startDir);
+}
+
+/**
  * 获取 projects 目录路径
  * 不依赖于当前工作目录，而是基于文件系统结构查找项目根目录
  */
 export function getProjectsBaseDir(): string {
-  // 从当前文件位置开始查找项目根目录
-  // 使用 import.meta.url 获取当前文件的路径
-  const currentFileDir = path.dirname(url.fileURLToPath(import.meta.url));
-  let startDir = currentFileDir;
-
-  // 如果是构建后的文件，路径会是 dist/src/config
-  // 如果是源码文件，路径会是 src/config
-  if (currentFileDir.includes('dist')) {
-    // 构建模式：dist/src/config -> 项目根目录
-    startDir = path.resolve(currentFileDir, '../../../..');
-  } else {
-    // 开发模式：src/config -> 项目根目录
-    startDir = path.resolve(currentFileDir, '../../..');
-  }
-
-  const projectRoot = findProjectRoot(startDir);
+  const projectRoot = getProjectRoot();
   const projectsDir = path.resolve(projectRoot, 'projects');
 
-  // 始终返回 projects 目录（即使不存在，后续 createSessionWorkDir 会创建）
   logger.info(
     `[Config] Project root: ${projectRoot}, projects dir: ${projectsDir}`,
   );
   return projectsDir;
+}
+
+/**
+ * 获取 sessions 目录路径（与 projects 并列）
+ */
+export function getSessionsBaseDir(): string {
+  const projectRoot = getProjectRoot();
+  const sessionsDir = path.resolve(projectRoot, 'sessions');
+
+  logger.info(
+    `[Config] Project root: ${projectRoot}, sessions dir: ${sessionsDir}`,
+  );
+  return sessionsDir;
 }
 
 /**

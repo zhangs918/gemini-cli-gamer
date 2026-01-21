@@ -64,3 +64,4 @@ evals/logs/
 # WebUI session directories
 projects/
 @projects/
+sessions/

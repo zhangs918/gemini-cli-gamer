@@ -28,6 +28,7 @@ import {
   loadEnvironment,
   setTargetDir,
   getProjectsBaseDir,
+  getSessionsBaseDir,
 } from '../config/config.js';
 import { loadSettings } from '../config/settings.js';
 import { loadExtensions } from '../config/extension.js';
@@ -168,8 +169,11 @@ export async function createApp() {
 
     // 初始化会话持久化存储
     const projectsDir = getProjectsBaseDir();
-    initSessionStore(projectsDir);
-    logger.info(`[CoreAgent] Session store initialized at: ${projectsDir}`);
+    const sessionsDir = getSessionsBaseDir();
+    initSessionStore(sessionsDir, projectsDir);
+    logger.info(
+      `[CoreAgent] Session store initialized: sessions=${sessionsDir}, projects=${projectsDir}`,
+    );
 
     // Load the server configuration once on startup.
     const workspaceRoot = setTargetDir(undefined);

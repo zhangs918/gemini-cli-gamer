@@ -26,16 +26,19 @@ export interface SessionsIndex {
 }
 
 export class SessionStore {
-  private baseDir: string;
+  private sessionsDir: string; // sessions 目录（存储元数据和消息）
+  private projectsDir: string; // projects 目录（工作目录）
   private indexPath: string;
   private index: SessionsIndex;
 
-  constructor(baseDir: string) {
-    this.baseDir = baseDir;
-    this.indexPath = path.join(baseDir, '.sessions.json');
+  constructor(sessionsDir: string, projectsDir: string) {
+    this.sessionsDir = sessionsDir;
+    this.projectsDir = projectsDir;
+    this.indexPath = path.join(sessionsDir, '.sessions.json');
 
-    if (!fs.existsSync(baseDir)) {
-      fs.mkdirSync(baseDir, { recursive: true });
+    // 确保 sessions 目录存在
+    if (!fs.existsSync(sessionsDir)) {
+      fs.mkdirSync(sessionsDir, { recursive: true });
     }
 
     this.index = this.loadIndex();
@@ -66,11 +69,11 @@ export class SessionStore {
     return this.index[sessionId] || null;
   }
 
-  // 获取会话的绝对工作目录路径
+  // 获取会话的绝对工作目录路径（在 projects 目录下）
   getWorkDirPath(sessionId: string): string | null {
     const session = this.index[sessionId];
     if (!session) return null;
-    return path.join(this.baseDir, session.workDir);
+    return path.join(this.projectsDir, session.workDir);
   }
 
   // 创建会话
@@ -79,11 +82,16 @@ export class SessionStore {
     workDirName: string,
     title: string = '新对话',
   ): SessionMetadata {
-    const workDirPath = path.join(this.baseDir, workDirName);
-
-    // 确保工作目录存在
+    // 工作目录在 projects 目录下
+    const workDirPath = path.join(this.projectsDir, workDirName);
     if (!fs.existsSync(workDirPath)) {
       fs.mkdirSync(workDirPath, { recursive: true });
+    }
+
+    // 消息目录在 sessions 目录下
+    const sessionMessagesDir = path.join(this.sessionsDir, sessionId);
+    if (!fs.existsSync(sessionMessagesDir)) {
+      fs.mkdirSync(sessionMessagesDir, { recursive: true });
     }
 
     const session: SessionMetadata = {
@@ -97,8 +105,8 @@ export class SessionStore {
     this.index[sessionId] = session;
     this.saveIndex();
 
-    // 初始化空消息文件
-    const messagesPath = path.join(workDirPath, '.messages.json');
+    // 初始化空消息文件（在 sessions 目录下）
+    const messagesPath = path.join(sessionMessagesDir, '.messages.json');
     if (!fs.existsSync(messagesPath)) {
       fs.writeFileSync(messagesPath, '[]');
     }
@@ -130,11 +138,16 @@ export class SessionStore {
     const session = this.index[sessionId];
     if (!session) return false;
 
-    const workDirPath = path.join(this.baseDir, session.workDir);
-
-    // 删除工作目录
+    // 删除工作目录（projects 目录下）
+    const workDirPath = path.join(this.projectsDir, session.workDir);
     if (fs.existsSync(workDirPath)) {
       fs.rmSync(workDirPath, { recursive: true, force: true });
+    }
+
+    // 删除消息目录（sessions 目录下）
+    const sessionMessagesDir = path.join(this.sessionsDir, sessionId);
+    if (fs.existsSync(sessionMessagesDir)) {
+      fs.rmSync(sessionMessagesDir, { recursive: true, force: true });
     }
 
     delete this.index[sessionId];
@@ -143,12 +156,10 @@ export class SessionStore {
     return true;
   }
 
-  // 获取消息
+  // 获取消息（从 sessions 目录）
   getMessages(sessionId: string): StoredMessage[] {
-    const workDirPath = this.getWorkDirPath(sessionId);
-    if (!workDirPath) return [];
-
-    const messagesPath = path.join(workDirPath, '.messages.json');
+    const sessionMessagesDir = path.join(this.sessionsDir, sessionId);
+    const messagesPath = path.join(sessionMessagesDir, '.messages.json');
     if (fs.existsSync(messagesPath)) {
       try {
         return JSON.parse(fs.readFileSync(messagesPath, 'utf-8'));
@@ -159,15 +170,17 @@ export class SessionStore {
     return [];
   }
 
-  // 添加消息
+  // 添加消息（保存到 sessions 目录）
   addMessage(sessionId: string, message: StoredMessage): boolean {
-    const workDirPath = this.getWorkDirPath(sessionId);
-    if (!workDirPath) return false;
+    const sessionMessagesDir = path.join(this.sessionsDir, sessionId);
+    if (!fs.existsSync(sessionMessagesDir)) {
+      fs.mkdirSync(sessionMessagesDir, { recursive: true });
+    }
 
     const messages = this.getMessages(sessionId);
     messages.push(message);
 
-    const messagesPath = path.join(workDirPath, '.messages.json');
+    const messagesPath = path.join(sessionMessagesDir, '.messages.json');
     fs.writeFileSync(messagesPath, JSON.stringify(messages, null, 2));
 
     // 更新会话时间
@@ -185,17 +198,19 @@ export class SessionStore {
 // 单例
 let storeInstance: SessionStore | null = null;
 
-export function getSessionStore(baseDir?: string): SessionStore {
+export function getSessionStore(): SessionStore {
   if (!storeInstance) {
-    if (!baseDir) {
-      throw new Error('SessionStore not initialized. Call with baseDir first.');
-    }
-    storeInstance = new SessionStore(baseDir);
+    throw new Error(
+      'SessionStore not initialized. Call initSessionStore() first.',
+    );
   }
   return storeInstance;
 }
 
-export function initSessionStore(baseDir: string): SessionStore {
-  storeInstance = new SessionStore(baseDir);
+export function initSessionStore(
+  sessionsDir: string,
+  projectsDir: string,
+): SessionStore {
+  storeInstance = new SessionStore(sessionsDir, projectsDir);
   return storeInstance;
 }
