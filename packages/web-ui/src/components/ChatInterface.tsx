@@ -126,6 +126,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     let streamingMessageId: string | null = null;
     let streamingContent = '';
     let isFirstMessage = messages.length === 0;
+    let newSessionId: string | null = null; // 用于跟踪新创建的 sessionId
 
     try {
       const handleStream = (event: StreamEvent) => {
@@ -133,6 +134,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           // 新会话创建事件
           const data = event.data as { sessionId?: string; workDir?: string };
           if (data.sessionId && data.workDir) {
+            newSessionId = data.sessionId; // 保存新的 sessionId
             setSessionId(data.sessionId);
             if (!conversationId) {
               // 这是一个新会话
@@ -177,9 +179,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             setMessages((prev) => [...prev, assistantMessage]);
 
             // 更新标题（如果是第一条消息）
-            if (isFirstMessage && sessionId) {
+            // 使用 newSessionId（新创建的会话）或 sessionId（已有的会话）
+            const currentSessionId = newSessionId || sessionId;
+            if (isFirstMessage && currentSessionId) {
               const title = content.substring(0, 30);
-              onUpdateTitle?.(sessionId, title);
+              onUpdateTitle?.(currentSessionId, title);
             }
 
             // AI 回复完成后滚动到底部
