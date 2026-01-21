@@ -12,6 +12,7 @@ export interface SessionMetadata {
   workDir: string; // 相对于 baseDir 的目录名
   createdAt: number;
   updatedAt: number;
+  conversationFilePath?: string; // ChatRecordingService 保存的完整对话历史文件路径
 }
 
 export interface StoredMessage {
@@ -134,13 +135,16 @@ export class SessionStore {
   // 更新会话
   updateSession(
     sessionId: string,
-    updates: Partial<Pick<SessionMetadata, 'title'>>,
+    updates: Partial<Pick<SessionMetadata, 'title' | 'conversationFilePath'>>,
   ): SessionMetadata | null {
     const session = this.index[sessionId];
     if (!session) return null;
 
     if (updates.title !== undefined) {
       session.title = updates.title;
+    }
+    if (updates.conversationFilePath !== undefined) {
+      session.conversationFilePath = updates.conversationFilePath;
     }
     session.updatedAt = Date.now();
 

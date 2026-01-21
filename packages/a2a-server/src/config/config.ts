@@ -14,11 +14,11 @@ import {
   AuthType,
   Config,
   type ConfigParameters,
-  FileDiscoveryService,
+  // FileDiscoveryService,  // 禁用 memory 功能
   ApprovalMode,
   createPolicyEngineConfig,
   type PolicySettings,
-  loadServerHierarchicalMemory,
+  // loadServerHierarchicalMemory,  // 禁用 memory 功能
   GEMINI_DIR,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   type ExtensionLoader,
@@ -215,19 +215,20 @@ export async function createSessionConfig(
     configParams.approvalMode ?? ApprovalMode.DEFAULT,
   );
 
-  const fileService = new FileDiscoveryService(workspaceDir);
-  const { memoryContent, fileCount, filePaths } =
-    await loadServerHierarchicalMemory(
-      workspaceDir,
-      [workspaceDir],
-      false,
-      fileService,
-      extensionLoader,
-      folderTrust,
-    );
-  configParams.userMemory = memoryContent;
-  configParams.geminiMdFileCount = fileCount;
-  configParams.geminiMdFilePaths = filePaths;
+  // 禁用 memory 功能 - 不加载 GEMINI.md 等记忆文件
+  // const fileService = new FileDiscoveryService(workspaceDir);
+  // const { memoryContent, fileCount, filePaths } =
+  //   await loadServerHierarchicalMemory(
+  //     workspaceDir,
+  //     [workspaceDir],
+  //     false,
+  //     fileService,
+  //     extensionLoader,
+  //     folderTrust,
+  //   );
+  configParams.userMemory = '';
+  configParams.geminiMdFileCount = 0;
+  configParams.geminiMdFilePaths = [];
 
   const config = new Config({
     ...configParams,
@@ -335,19 +336,20 @@ export async function loadConfig(
     configParams.approvalMode ?? ApprovalMode.DEFAULT,
   );
 
-  const fileService = new FileDiscoveryService(workspaceDir);
-  const { memoryContent, fileCount, filePaths } =
-    await loadServerHierarchicalMemory(
-      workspaceDir,
-      [workspaceDir],
-      false,
-      fileService,
-      extensionLoader,
-      folderTrust,
-    );
-  configParams.userMemory = memoryContent;
-  configParams.geminiMdFileCount = fileCount;
-  configParams.geminiMdFilePaths = filePaths;
+  // 禁用 memory 功能 - 不加载 GEMINI.md 等记忆文件
+  // const fileService = new FileDiscoveryService(workspaceDir);
+  // const { memoryContent, fileCount, filePaths } =
+  //   await loadServerHierarchicalMemory(
+  //     workspaceDir,
+  //     [workspaceDir],
+  //     false,
+  //     fileService,
+  //     extensionLoader,
+  //     folderTrust,
+  //   );
+  configParams.userMemory = '';
+  configParams.geminiMdFileCount = 0;
+  configParams.geminiMdFilePaths = [];
   const config = new Config({
     ...configParams,
   });

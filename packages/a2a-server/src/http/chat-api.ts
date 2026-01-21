@@ -6,22 +6,32 @@
 
 import type express from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type {
   Config,
   ToolCallRequestInfo,
   GeminiCLIExtension,
+  ConversationRecord,
+  ResumedSessionData,
 } from '@google/gemini-cli-core';
+import { getProjectHash } from '@google/gemini-cli-core';
 import { SimpleExtensionLoader } from '@google/gemini-cli-core';
 import { GeminiEventType, executeToolCall } from '@google/gemini-cli-core';
 import type { Part } from '@google/genai';
 import { logger } from '../utils/logger.js';
 import { Task } from '../agent/task.js';
-import { createSessionConfig, generateRandomId } from '../config/config.js';
+import {
+  createSessionConfig,
+  generateRandomId,
+  getSessionsBaseDir,
+} from '../config/config.js';
 import type { Settings } from '../config/settings.js';
 import {
   getSessionStore,
   type StoredMessage,
 } from '../storage/session-store.js';
+import { convertToClientHistory } from '../utils/historyConverter.js';
 
 interface ChatSession {
   id: string;
@@ -101,6 +111,40 @@ async function getOrCreateSession(
     );
     await task.geminiClient.initialize();
 
+    // 尝试恢复对话历史
+    let resumedSessionData: ResumedSessionData | undefined;
+    if (storedSession.conversationFilePath) {
+      try {
+        if (fs.existsSync(storedSession.conversationFilePath)) {
+          const conversationData = fs.readFileSync(
+            storedSession.conversationFilePath,
+            'utf-8',
+          );
+          const conversation: ConversationRecord = JSON.parse(conversationData);
+
+          resumedSessionData = {
+            conversation,
+            filePath: storedSession.conversationFilePath,
+          };
+
+          // 转换历史记录并恢复到 Gemini 客户端
+          const clientHistory = convertToClientHistory(conversation.messages);
+          await task.geminiClient.resumeChat(clientHistory, resumedSessionData);
+
+          logger.info(
+            `[ChatAPI] Successfully restored ${clientHistory.length} history entries for session ${sessionId}`,
+          );
+        } else {
+          logger.warn(
+            `[ChatAPI] Conversation file not found: ${storedSession.conversationFilePath}`,
+          );
+        }
+      } catch (error) {
+        logger.error(`[ChatAPI] Error restoring conversation history:`, error);
+        // 继续使用空历史，不中断会话恢复
+      }
+    }
+
     const session: ChatSession = {
       id: sessionId,
       task,
@@ -139,6 +183,38 @@ async function getOrCreateSession(
     workDirPath,
   );
 
+  // 创建对话历史文件路径（统一存储在 user_data/sessions 目录）
+  const sessionsDir = getSessionsBaseDir();
+  const sessionDir = path.join(sessionsDir, newSessionId);
+  const conversationFilePath = path.join(sessionDir, 'conversation.json');
+
+  // 确保会话目录存在
+  if (!fs.existsSync(sessionDir)) {
+    fs.mkdirSync(sessionDir, { recursive: true });
+  }
+
+  // 创建空的对话记录文件
+  const emptyConversation: ConversationRecord = {
+    sessionId: newSessionId,
+    projectHash: getProjectHash(config.getProjectRoot()),
+    startTime: new Date().toISOString(),
+    lastUpdated: new Date().toISOString(),
+    messages: [],
+  };
+  fs.writeFileSync(
+    conversationFilePath,
+    JSON.stringify(emptyConversation, null, 2),
+  );
+
+  // 创建 ResumedSessionData 指向统一存储位置
+  const resumedSessionData: ResumedSessionData = {
+    conversation: emptyConversation,
+    filePath: conversationFilePath,
+  };
+
+  // 保存对话文件路径到 SessionStore
+  store.updateSession(newSessionId, { conversationFilePath });
+
   const contextId = uuidv4();
   const task = await Task.create(
     newSessionId,
@@ -147,7 +223,9 @@ async function getOrCreateSession(
     undefined,
     true,
   );
-  await task.geminiClient.initialize();
+
+  // 使用 resumeChat 初始化，这样 ChatRecordingService 会使用我们指定的文件路径
+  await task.geminiClient.resumeChat([], resumedSessionData);
 
   const session: ChatSession = {
     id: newSessionId,
@@ -284,6 +362,16 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
             // 1 user + 1 assistant
             const title = message.substring(0, 30);
             store.updateSession(session.id, { title });
+          }
+
+          // 保存 ChatRecordingService 的对话文件路径
+          // 这样下次恢复会话时可以加载完整的对话历史
+          const chatRecordingService =
+            session.task.geminiClient.getChatRecordingService();
+          const conversationFilePath =
+            chatRecordingService?.getConversationFilePath();
+          if (conversationFilePath) {
+            store.updateSession(session.id, { conversationFilePath });
           }
         }
 
@@ -445,7 +533,12 @@ async function processMessageWithToolLoop(
         );
         return fullContent;
       } else if (event.type === GeminiEventType.Finished) {
-        break;
+        // 注意：不要在这里 break！
+        // 需要让 generator 完全消费完毕，这样 processStreamResponse 中
+        // 记录模型响应的代码才会执行
+        logger.info(
+          '[ChatAPI] Received Finished event, continuing to drain stream',
+        );
       }
     }
 
