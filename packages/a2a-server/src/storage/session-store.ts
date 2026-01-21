@@ -61,12 +61,16 @@ export class SessionStore {
   }
 
   // 获取所有会话（按更新时间倒序）
+  // 每次都从磁盘读取，确保和文件系统同步
   listSessions(): SessionMetadata[] {
+    this.index = this.loadIndex();
     return Object.values(this.index).sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
   // 获取单个会话
+  // 每次都从磁盘读取，确保和文件系统同步
   getSession(sessionId: string): SessionMetadata | null {
+    this.index = this.loadIndex();
     return this.index[sessionId] || null;
   }
 
