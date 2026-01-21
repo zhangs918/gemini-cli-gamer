@@ -166,10 +166,64 @@ export class ApiClient {
     let fullContent = '';
     let messageId = '';
     let returnSessionId: string | undefined;
+    let buffer = ''; // 用于缓存不完整的 SSE 数据
 
     if (!reader) {
       throw new Error('No response body');
     }
+
+    // 处理单个 SSE 事件
+    const processEvent = (eventData: string) => {
+      try {
+        const data = JSON.parse(eventData);
+
+        if (data.type === 'session') {
+          // 会话信息事件
+          returnSessionId = data.sessionId;
+          onStream?.({
+            type: 'session' as any,
+            data: { sessionId: data.sessionId, workDir: data.workDir },
+          });
+        } else if (data.type === 'messageId') {
+          // 初始消息 ID 事件
+          messageId = data.messageId || messageId;
+        } else if (data.type === 'text') {
+          fullContent += data.content || '';
+          messageId = data.messageId || messageId;
+          onStream?.({
+            type: 'text',
+            data: { content: data.content, messageId },
+          });
+        } else if (data.type === 'thought') {
+          onStream?.({
+            type: 'thought',
+            data: { thought: data.thought },
+          });
+        } else if (data.type === 'tool_call') {
+          onStream?.({
+            type: 'tool_call',
+            data: data.toolCall,
+          });
+        } else if (data.type === 'tool_result') {
+          onStream?.({
+            type: 'tool_result',
+            data: data.result,
+          });
+        } else if (data.type === 'error') {
+          onStream?.({
+            type: 'error',
+            data: data.error,
+          });
+        } else if (data.type === 'done') {
+          onStream?.({
+            type: 'done',
+            data: {},
+          });
+        }
+      } catch (e) {
+        console.error('Failed to parse SSE data:', eventData, e);
+      }
+    };
 
     try {
       while (true) {
@@ -177,60 +231,29 @@ export class ApiClient {
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+        buffer += chunk;
 
+        // SSE 事件以 \n\n 分隔，处理完整的事件
+        const events = buffer.split('\n\n');
+        // 最后一个可能是不完整的，保留在 buffer 中
+        buffer = events.pop() || '';
+
+        for (const event of events) {
+          const lines = event.split('\n');
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              processEvent(line.slice(6));
+            }
+          }
+        }
+      }
+
+      // 处理 buffer 中剩余的数据
+      if (buffer.trim()) {
+        const lines = buffer.split('\n');
         for (const line of lines) {
           if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.type === 'session') {
-                // 会话信息事件
-                returnSessionId = data.sessionId;
-                onStream?.({
-                  type: 'session' as any,
-                  data: { sessionId: data.sessionId, workDir: data.workDir },
-                });
-              } else if (data.type === 'messageId') {
-                // 初始消息 ID 事件
-                messageId = data.messageId || messageId;
-              } else if (data.type === 'text') {
-                fullContent += data.content || '';
-                messageId = data.messageId || messageId;
-                onStream?.({
-                  type: 'text',
-                  data: { content: data.content, messageId },
-                });
-              } else if (data.type === 'thought') {
-                onStream?.({
-                  type: 'thought',
-                  data: { thought: data.thought },
-                });
-              } else if (data.type === 'tool_call') {
-                onStream?.({
-                  type: 'tool_call',
-                  data: data.toolCall,
-                });
-              } else if (data.type === 'tool_result') {
-                onStream?.({
-                  type: 'tool_result',
-                  data: data.result,
-                });
-              } else if (data.type === 'error') {
-                onStream?.({
-                  type: 'error',
-                  data: data.error,
-                });
-              } else if (data.type === 'done') {
-                onStream?.({
-                  type: 'done',
-                  data: {},
-                });
-                break;
-              }
-            } catch (e) {
-              console.error('Failed to parse SSE data:', e);
-            }
+            processEvent(line.slice(6));
           }
         }
       }

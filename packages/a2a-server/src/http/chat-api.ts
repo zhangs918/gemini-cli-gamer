@@ -393,6 +393,7 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
       res.setHeader('X-Accel-Buffering', 'no');
+      res.flushHeaders(); // 立即发送 headers，确保 SSE 连接建立
 
       // Send session ID and message ID
       res.write(
@@ -616,6 +617,11 @@ async function processMessageWithToolLoop(
   // 直接使用传入的 parts（可能包含多模态内容）
   let currentRequest: Part[] = messageParts;
   let fullContent = '';
+
+  // 立即发送一个空格，让前端显示等待状态
+  res.write(
+    `data: ${JSON.stringify({ type: 'text', content: ' ', messageId: promptId })}\n\n`,
+  );
 
   while (turnCount < MAX_TURNS) {
     turnCount++;

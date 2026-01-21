@@ -38,34 +38,46 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevConversationIdRef = useRef<string | null>(null);
 
   // 从后端加载消息
   useEffect(() => {
-    setCurrentStreamingContent('');
-    setIsLoading(false);
-    setPendingToolCall(null);
+    const prevConversationId = prevConversationIdRef.current;
+    prevConversationIdRef.current = conversationId;
+
+    // 关键修复：新会话在发送中被创建时（conversationId 从 null 变成新 id），
+    // 如果正在加载中，不要清空流式状态和重载消息，否则会导致等待状态消失
+    const isCreatingSessionDuringSend =
+      prevConversationId === null && conversationId && isLoading;
+
+    if (!isCreatingSessionDuringSend) {
+      setCurrentStreamingContent('');
+      setIsLoading(false);
+      setPendingToolCall(null);
+    }
 
     if (conversationId) {
       setSessionId(conversationId);
-      setIsLoadingMessages(true);
-
-      apiClient
-        .getSession(conversationId)
-        .then((session) => {
-          setMessages(session.messages || []);
-        })
-        .catch((error) => {
-          console.error('Failed to load messages:', error);
-          setMessages([]);
-        })
-        .finally(() => {
-          setIsLoadingMessages(false);
-        });
+      if (!isCreatingSessionDuringSend) {
+        setIsLoadingMessages(true);
+        apiClient
+          .getSession(conversationId)
+          .then((session) => {
+            setMessages(session.messages || []);
+          })
+          .catch((error) => {
+            console.error('Failed to load messages:', error);
+            setMessages([]);
+          })
+          .finally(() => {
+            setIsLoadingMessages(false);
+          });
+      }
     } else {
       setMessages([]);
       setSessionId(null);
     }
-  }, [conversationId]);
+  }, [conversationId, isLoading]);
 
   const scrollToBottom = useCallback((immediate = false) => {
     // 清除之前的定时器
