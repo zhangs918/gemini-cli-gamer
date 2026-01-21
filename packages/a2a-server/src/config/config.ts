@@ -156,10 +156,13 @@ export async function createSessionConfig(
     settings.folderTrust === true ||
     process.env['GEMINI_FOLDER_TRUST'] === 'true';
 
+  // 固定使用 gemini-3-pro-preview 作为默认模型
+  const model = PREVIEW_GEMINI_MODEL;
+  logger.info(`[Config] 当前使用的模型: ${model}`);
+
   const configParams: ConfigParameters = {
     sessionId,
-    // 固定使用 gemini-3-pro-preview 作为默认模型
-    model: PREVIEW_GEMINI_MODEL,
+    model,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: undefined,
     targetDir: workspaceDir,
@@ -272,10 +275,13 @@ export async function loadConfig(
     settings.folderTrust === true ||
     process.env['GEMINI_FOLDER_TRUST'] === 'true';
 
+  // 固定使用 gemini-3-pro-preview 作为默认模型
+  const model = PREVIEW_GEMINI_MODEL;
+  logger.info(`[Config] 当前使用的模型: ${model}`);
+
   const configParams: ConfigParameters = {
     sessionId: taskId,
-    // 固定使用 gemini-3-pro-preview 作为默认模型
-    model: PREVIEW_GEMINI_MODEL,
+    model,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: undefined, // Sandbox might not be relevant for a server-side agent
     targetDir: workspaceDir, // Or a specific directory the agent operates on

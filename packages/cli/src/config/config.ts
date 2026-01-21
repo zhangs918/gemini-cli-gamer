@@ -637,6 +637,10 @@ export async function loadCliConfig(
     specifiedModel === GEMINI_MODEL_ALIAS_AUTO
       ? defaultModel
       : specifiedModel || defaultModel;
+
+  // 打印当前使用的模型
+  debugLogger.info(`[Gemini CLI] 当前使用的模型: ${resolvedModel}`);
+
   const sandboxConfig = await loadSandboxConfig(settings, argv);
   const screenReader =
     argv.screenReader !== undefined
