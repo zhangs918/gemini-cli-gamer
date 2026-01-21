@@ -111,6 +111,23 @@ export class SessionStore {
       fs.writeFileSync(messagesPath, '[]');
     }
 
+    // 在工作目录中创建空的 index.html 模板
+    const indexHtmlPath = path.join(workDirPath, 'index.html');
+    if (!fs.existsSync(indexHtmlPath)) {
+      const htmlTemplate = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+</body>
+</html>`;
+      fs.writeFileSync(indexHtmlPath, htmlTemplate, 'utf-8');
+    }
+
     return session;
   }
 
