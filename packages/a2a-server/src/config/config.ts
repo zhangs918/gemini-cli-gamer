@@ -94,11 +94,11 @@ function getProjectRoot(): string {
 
 /**
  * 获取 projects 目录路径
- * 不依赖于当前工作目录，而是基于文件系统结构查找项目根目录
+ * 位于 user_data/projects 下
  */
 export function getProjectsBaseDir(): string {
   const projectRoot = getProjectRoot();
-  const projectsDir = path.resolve(projectRoot, 'projects');
+  const projectsDir = path.resolve(projectRoot, 'user_data', 'projects');
 
   logger.info(
     `[Config] Project root: ${projectRoot}, projects dir: ${projectsDir}`,
@@ -107,11 +107,12 @@ export function getProjectsBaseDir(): string {
 }
 
 /**
- * 获取 sessions 目录路径（与 projects 并列）
+ * 获取 sessions 目录路径
+ * 位于 user_data/sessions 下
  */
 export function getSessionsBaseDir(): string {
   const projectRoot = getProjectRoot();
-  const sessionsDir = path.resolve(projectRoot, 'sessions');
+  const sessionsDir = path.resolve(projectRoot, 'user_data', 'sessions');
 
   logger.info(
     `[Config] Project root: ${projectRoot}, sessions dir: ${sessionsDir}`,

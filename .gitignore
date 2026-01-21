@@ -61,7 +61,5 @@ patch_output.log
 .eslintcache
 evals/logs/
 
-# WebUI session directories
-projects/
-@projects/
-sessions/
+# WebUI user data directory
+user_data/
