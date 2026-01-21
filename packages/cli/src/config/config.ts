@@ -16,7 +16,6 @@ import {
   setGeminiMdFilename as setServerGeminiMdFilename,
   getCurrentGeminiMdFilename,
   ApprovalMode,
-  DEFAULT_GEMINI_MODEL_AUTO,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
   DEFAULT_FILE_FILTERING_OPTIONS,
   DEFAULT_MEMORY_FILE_FILTERING_OPTIONS,
@@ -32,7 +31,7 @@ import {
   loadServerHierarchicalMemory,
   WEB_FETCH_TOOL_NAME,
   getVersion,
-  PREVIEW_GEMINI_MODEL_AUTO,
+  PREVIEW_GEMINI_MODEL,
   type HookDefinition,
   type HookEventName,
   type OutputFormat,
@@ -629,9 +628,8 @@ export async function loadCliConfig(
   );
   policyEngineConfig.nonInteractive = !interactive;
 
-  const defaultModel = settings.general?.previewFeatures
-    ? PREVIEW_GEMINI_MODEL_AUTO
-    : DEFAULT_GEMINI_MODEL_AUTO;
+  // 固定使用 gemini-3-pro-preview 作为默认模型
+  const defaultModel = PREVIEW_GEMINI_MODEL;
   const specifiedModel =
     argv.model || process.env['GEMINI_MODEL'] || settings.model?.name;
 

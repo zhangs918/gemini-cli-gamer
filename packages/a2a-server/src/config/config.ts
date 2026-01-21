@@ -21,7 +21,6 @@ import {
   loadServerHierarchicalMemory,
   GEMINI_DIR,
   DEFAULT_GEMINI_EMBEDDING_MODEL,
-  DEFAULT_GEMINI_MODEL,
   type ExtensionLoader,
   startupProfiler,
   PREVIEW_GEMINI_MODEL,
@@ -159,9 +158,8 @@ export async function createSessionConfig(
 
   const configParams: ConfigParameters = {
     sessionId,
-    model: settings.general?.previewFeatures
-      ? PREVIEW_GEMINI_MODEL
-      : DEFAULT_GEMINI_MODEL,
+    // 固定使用 gemini-3-pro-preview 作为默认模型
+    model: PREVIEW_GEMINI_MODEL,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: undefined,
     targetDir: workspaceDir,
@@ -276,9 +274,8 @@ export async function loadConfig(
 
   const configParams: ConfigParameters = {
     sessionId: taskId,
-    model: settings.general?.previewFeatures
-      ? PREVIEW_GEMINI_MODEL
-      : DEFAULT_GEMINI_MODEL,
+    // 固定使用 gemini-3-pro-preview 作为默认模型
+    model: PREVIEW_GEMINI_MODEL,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: undefined, // Sandbox might not be relevant for a server-side agent
     targetDir: workspaceDir, // Or a specific directory the agent operates on
