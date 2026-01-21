@@ -100,6 +100,11 @@ function App() {
     );
   }
 
+  // 获取当前会话的 workDir
+  const currentConversation = conversations.find(
+    (conv) => conv.id === currentConversationId,
+  );
+
   return (
     <div className="app">
       <Sidebar
@@ -118,7 +123,7 @@ function App() {
           />
         </div>
         <div className="app-main-right">
-          <WebView />
+          <WebView workDir={currentConversation?.workDir} />
         </div>
       </main>
     </div>

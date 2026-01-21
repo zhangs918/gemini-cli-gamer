@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as url from 'node:url';
 
@@ -232,6 +233,59 @@ export async function createApp() {
       requestStorage.run({ req }, next);
     });
 
+    // 项目预览静态文件服务 - 必须在其他路由之前注册
+    // 用于 WebView 加载项目目录下的文件（如 index.html）
+    expressApp.use('/preview/:projectId', (req, res, _next) => {
+      const { projectId } = req.params;
+      // 从 URL 中获取文件路径（去掉前导斜杠）
+      const filePath = req.path.slice(1) || 'index.html';
+      const fullPath = path.join(projectsDir, projectId, filePath);
+
+      // 安全检查：确保请求的文件在项目目录内
+      const normalizedPath = path.normalize(fullPath);
+      const normalizedProjectsDir = path.normalize(projectsDir);
+      if (!normalizedPath.startsWith(normalizedProjectsDir)) {
+        logger.warn(`[Preview] Forbidden access attempt: ${normalizedPath}`);
+        res.status(403).send('Forbidden');
+        return;
+      }
+
+      // 检查文件是否存在
+      if (!fs.existsSync(normalizedPath)) {
+        res.status(404).send(`File not found: ${filePath}`);
+        return;
+      }
+
+      // 设置正确的 Content-Type
+      const ext = path.extname(filePath).toLowerCase();
+      const mimeTypes: Record<string, string> = {
+        '.html': 'text/html',
+        '.htm': 'text/html',
+        '.css': 'text/css',
+        '.js': 'application/javascript',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
+        '.woff': 'font/woff',
+        '.woff2': 'font/woff2',
+        '.ttf': 'font/ttf',
+      };
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+
+      logger.info(`[Preview] Serving file: ${normalizedPath}`);
+      res.sendFile(normalizedPath, (err) => {
+        if (err && !res.headersSent) {
+          logger.error(`[Preview] Error sending file: ${err}`);
+          res.status(500).send('Error loading file');
+        }
+      });
+    });
+
     const appBuilder = new A2AExpressApp(requestHandler);
     expressApp = appBuilder.setupRoutes(expressApp, '');
     expressApp.use(express.json());
@@ -365,7 +419,6 @@ export async function createApp() {
     // 静态文件服务 - 服务前端构建产物（必须在所有 API 路由之后）
     // 从当前文件位置计算项目根目录
     const __dirname = path.dirname(url.fileURLToPath(import.meta.url));
-    const fs = await import('node:fs');
 
     // 找到项目根目录（包含 package.json 的目录）
     // 使用原始工作目录，因为 setTargetDir 可能已经改变了 process.cwd()
@@ -422,10 +475,11 @@ export async function createApp() {
           return next();
         }
 
-        // 跳过 API 路由和 .well-known 路由
+        // 跳过 API 路由、.well-known 路由和 /preview 路由
         if (
           req.path.startsWith('/api') ||
-          req.path.startsWith('/.well-known')
+          req.path.startsWith('/.well-known') ||
+          req.path.startsWith('/preview')
         ) {
           return next();
         }
