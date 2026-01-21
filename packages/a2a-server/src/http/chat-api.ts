@@ -421,9 +421,11 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
             ? parts
             : [{ text: message }];
 
-        // 保存多模态文件到工作目录
+        // 保存多模态文件到工作目录，并为每个文件添加名称标识
         const savedFiles: string[] = [];
         const workDirPath = store.getWorkDirPath(session.id);
+        const enhancedParts: Part[] = [];
+
         if (workDirPath && requestParts.length > 0) {
           for (const part of requestParts) {
             if (part && typeof part === 'object' && 'inlineData' in part) {
@@ -433,6 +435,13 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
                   workDirPath,
                 );
                 savedFiles.push(fileName);
+
+                // 在多模态内容前添加文件名标识，让 AI 知道文件名
+                enhancedParts.push({
+                  text: `[Uploaded file: ${fileName}]`,
+                });
+                enhancedParts.push(part);
+
                 logger.info(
                   `[ChatAPI] Saved multimodal file for session ${session.id}: ${fileName}`,
                 );
@@ -441,10 +450,17 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
                   `[ChatAPI] Failed to save multimodal file:`,
                   error,
                 );
-                // 继续处理其他文件，不中断请求
+                // 保存失败时仍然传递原始内容给 AI
+                enhancedParts.push(part);
               }
+            } else {
+              // 非多模态内容直接添加
+              enhancedParts.push(part);
             }
           }
+        } else {
+          // 如果没有工作目录，直接使用原始 parts
+          enhancedParts.push(...requestParts);
         }
 
         // 如果有文件被保存，记录到日志
@@ -453,6 +469,9 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
             `[ChatAPI] Saved ${savedFiles.length} multimodal file(s) to ${workDirPath}`,
           );
         }
+
+        // 使用增强后的 parts（包含文件名信息）
+        const finalRequestParts = enhancedParts;
 
         // 构建用户消息内容（包含文件信息）
         let userMessageContent = message || '';
@@ -474,7 +493,7 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
 
         fullResponse = await processMessageWithToolLoop(
           session.task,
-          requestParts,
+          finalRequestParts,
           promptId,
           abortController.signal,
           res,

@@ -187,11 +187,11 @@ ${config.getAgentRegistry().getDirectoryContext()}${skillsPrompt}`,
 **Goal:** Create visually stunning, immediately playable, and genuinely fun browser-based games.
 
 ## Multimodal Input Handling
-When the user provides images, videos, or other media files:
-1. **Analyze the Media:** Carefully examine the visual content, style, colors, subjects, mood, and any text or symbols present.
-2. **Creative Ideation:** Based on the media, brainstorm a clever, fun, and memorable game concept that creatively incorporates the visual elements. Think memes, viral trends, unexpected twists, and humorous interpretations.
-3. **Design Integration:** Plan how to integrate the media into the game - as characters, backgrounds, collectibles, obstacles, or thematic elements. The game should feel like a natural, witty extension of the provided media.
-4. **Proceed to Development:** Follow the game development workflow below with your creative concept.
+When the user uploads images, videos, audio, or other media files (indicated by "[Uploaded file: filename]"):
+1. **Analyze the Media:** Examine the visual/audio content, style, subjects, mood, and any text or symbols present.
+2. **Creative Ideation:** Brainstorm a clever, fun, and memorable game concept that creatively incorporates the media. Think memes, viral trends, unexpected twists, and humorous interpretations.
+3. **Direct Asset Usage:** When appropriate, directly reference uploaded files in the game code using the provided filename (e.g., \`<img src="upload_xxx.png">\` or \`new Audio("upload_xxx.mp3")\`). The files are saved in the working directory alongside index.html.
+4. **Proceed to Development:** Follow the game development workflow with your creative concept.
 
 ## Game Development Workflow`,
 
@@ -201,11 +201,11 @@ When the user provides images, videos, or other media files:
 **Goal:** Create visually stunning, immediately playable, and genuinely fun browser-based games.
 
 ## Multimodal Input Handling
-When the user provides images, videos, or other media files:
-1. **Analyze the Media:** Carefully examine the visual content, style, colors, subjects, mood, and any text or symbols present.
-2. **Creative Ideation:** Based on the media, brainstorm a clever, fun, and memorable game concept that creatively incorporates the visual elements. Think memes, viral trends, unexpected twists, and humorous interpretations.
-3. **Design Integration:** Plan how to integrate the media into the game - as characters, backgrounds, collectibles, obstacles, or thematic elements. The game should feel like a natural, witty extension of the provided media.
-4. **Proceed to Development:** Follow the game development workflow below with your creative concept.
+When the user uploads images, videos, audio, or other media files (indicated by "[Uploaded file: filename]"):
+1. **Analyze the Media:** Examine the visual/audio content, style, subjects, mood, and any text or symbols present.
+2. **Creative Ideation:** Brainstorm a clever, fun, and memorable game concept that creatively incorporates the media. Think memes, viral trends, unexpected twists, and humorous interpretations.
+3. **Direct Asset Usage:** When appropriate, directly reference uploaded files in the game code using the provided filename (e.g., \`<img src="upload_xxx.png">\` or \`new Audio("upload_xxx.mp3")\`). The files are saved in the working directory alongside index.html.
+4. **Proceed to Development:** Follow the game development workflow with your creative concept.
 
 ## Game Development Workflow`,
 
@@ -215,11 +215,11 @@ When the user provides images, videos, or other media files:
 **Goal:** Create visually stunning, immediately playable, and genuinely fun browser-based games.
 
 ## Multimodal Input Handling
-When the user provides images, videos, or other media files:
-1. **Analyze the Media:** Carefully examine the visual content, style, colors, subjects, mood, and any text or symbols present.
-2. **Creative Ideation:** Based on the media, brainstorm a clever, fun, and memorable game concept that creatively incorporates the visual elements. Think memes, viral trends, unexpected twists, and humorous interpretations.
-3. **Design Integration:** Plan how to integrate the media into the game - as characters, backgrounds, collectibles, obstacles, or thematic elements. The game should feel like a natural, witty extension of the provided media.
-4. **Proceed to Development:** Follow the game development workflow below with your creative concept.
+When the user uploads images, videos, audio, or other media files (indicated by "[Uploaded file: filename]"):
+1. **Analyze the Media:** Examine the visual/audio content, style, subjects, mood, and any text or symbols present.
+2. **Creative Ideation:** Brainstorm a clever, fun, and memorable game concept that creatively incorporates the media. Think memes, viral trends, unexpected twists, and humorous interpretations.
+3. **Direct Asset Usage:** When appropriate, directly reference uploaded files in the game code using the provided filename (e.g., \`<img src="upload_xxx.png">\` or \`new Audio("upload_xxx.mp3")\`). The files are saved in the working directory alongside index.html.
+4. **Proceed to Development:** Follow the game development workflow with your creative concept.
 
 ## Game Development Workflow`,
 
@@ -229,11 +229,11 @@ When the user provides images, videos, or other media files:
 **Goal:** Create visually stunning, immediately playable, and genuinely fun browser-based games.
 
 ## Multimodal Input Handling
-When the user provides images, videos, or other media files:
-1. **Analyze the Media:** Carefully examine the visual content, style, colors, subjects, mood, and any text or symbols present.
-2. **Creative Ideation:** Based on the media, brainstorm a clever, fun, and memorable game concept that creatively incorporates the visual elements. Think memes, viral trends, unexpected twists, and humorous interpretations.
-3. **Design Integration:** Plan how to integrate the media into the game - as characters, backgrounds, collectibles, obstacles, or thematic elements. The game should feel like a natural, witty extension of the provided media.
-4. **Proceed to Development:** Follow the game development workflow below with your creative concept.
+When the user uploads images, videos, audio, or other media files (indicated by "[Uploaded file: filename]"):
+1. **Analyze the Media:** Examine the visual/audio content, style, subjects, mood, and any text or symbols present.
+2. **Creative Ideation:** Brainstorm a clever, fun, and memorable game concept that creatively incorporates the media. Think memes, viral trends, unexpected twists, and humorous interpretations.
+3. **Direct Asset Usage:** When appropriate, directly reference uploaded files in the game code using the provided filename (e.g., \`<img src="upload_xxx.png">\` or \`new Audio("upload_xxx.mp3")\`). The files are saved in the working directory alongside index.html.
+4. **Proceed to Development:** Follow the game development workflow with your creative concept.
 
 ## Game Development Workflow`,
       primaryWorkflows_suffix: `
