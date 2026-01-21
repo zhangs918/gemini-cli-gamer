@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Sidebar, { type Conversation } from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import WebView from './components/WebView';
+import { apiClient } from './services/api';
 import './App.css';
 
 function App() {
@@ -10,39 +11,37 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState<
     string | null
   >(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load conversations from localStorage
+  // 从后端加载会话列表
   useEffect(() => {
-    const saved = localStorage.getItem('gemini-conversations');
-    if (saved) {
-      const parsed = JSON.parse(saved) as Conversation[];
-      setConversations(parsed);
-      if (parsed.length > 0) {
-        setCurrentConversationId(parsed[0].id);
+    const loadSessions = async () => {
+      try {
+        const sessions = await apiClient.getSessions();
+        const convs: Conversation[] = sessions.map((s) => ({
+          id: s.id,
+          title: s.title,
+          workDir: s.workDir,
+          createdAt: s.createdAt,
+          updatedAt: s.updatedAt,
+        }));
+        setConversations(convs);
+        if (convs.length > 0) {
+          setCurrentConversationId(convs[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
+    loadSessions();
   }, []);
 
-  // Save conversations to localStorage
-  useEffect(() => {
-    if (conversations.length > 0) {
-      localStorage.setItem(
-        'gemini-conversations',
-        JSON.stringify(conversations),
-      );
-    }
-  }, [conversations]);
-
   const handleNewConversation = useCallback(() => {
-    const newId = `conv-${Date.now()}`;
-    const newConversation: Conversation = {
-      id: newId,
-      title: '新对话',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setConversations((prev) => [newConversation, ...prev]);
-    setCurrentConversationId(newId);
+    // 不立即创建会话，而是设置 currentConversationId 为 null
+    // 会话会在用户发送第一条消息时由后端创建
+    setCurrentConversationId(null);
   }, []);
 
   const handleSelectConversation = useCallback((id: string) => {
@@ -50,12 +49,33 @@ function App() {
   }, []);
 
   const handleUpdateConversationTitle = useCallback(
-    (id: string, title: string) => {
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
-        ),
-      );
+    async (id: string, title: string) => {
+      try {
+        await apiClient.updateSession(id, { title });
+        setConversations((prev) =>
+          prev.map((conv) =>
+            conv.id === id ? { ...conv, title, updatedAt: Date.now() } : conv,
+          ),
+        );
+      } catch (error) {
+        console.error('Failed to update session title:', error);
+      }
+    },
+    [],
+  );
+
+  // 当新会话创建时，更新会话列表
+  const handleSessionCreated = useCallback(
+    (sessionId: string, workDir: string) => {
+      const newConversation: Conversation = {
+        id: sessionId,
+        title: '新对话',
+        workDir,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+      setConversations((prev) => [newConversation, ...prev]);
+      setCurrentConversationId(sessionId);
     },
     [],
   );
@@ -72,6 +92,14 @@ function App() {
     }
   }, [currentConversationId]);
 
+  if (isLoading) {
+    return (
+      <div className="app loading">
+        <div className="loading-spinner">加载中...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <Sidebar
@@ -86,6 +114,7 @@ function App() {
             conversationId={currentConversationId}
             onUpdateTitle={handleUpdateConversationTitle}
             onAddMessage={handleAddMessage}
+            onSessionCreated={handleSessionCreated}
           />
         </div>
         <div className="app-main-right">

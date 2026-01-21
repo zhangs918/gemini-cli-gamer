@@ -5,6 +5,7 @@ import './Sidebar.css';
 export interface Conversation {
   id: string;
   title: string;
+  workDir: string;
   createdAt: number;
   updatedAt: number;
 }

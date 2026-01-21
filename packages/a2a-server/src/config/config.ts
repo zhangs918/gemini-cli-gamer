@@ -35,7 +35,7 @@ import { type AgentSettings, CoderAgentEvent } from '../types.js';
 /**
  * 生成 8 位随机字符（小写字母和数字）
  */
-function generateRandomId(length = 8): string {
+export function generateRandomId(length = 8): string {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {

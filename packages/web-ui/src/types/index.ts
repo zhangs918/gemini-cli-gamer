@@ -14,7 +14,14 @@ export interface ChatSession {
 }
 
 export interface StreamEvent {
-  type: 'text' | 'thought' | 'tool_call' | 'tool_result' | 'error' | 'done';
+  type:
+    | 'text'
+    | 'thought'
+    | 'tool_call'
+    | 'tool_result'
+    | 'error'
+    | 'done'
+    | 'session';
   data: unknown;
 }
 

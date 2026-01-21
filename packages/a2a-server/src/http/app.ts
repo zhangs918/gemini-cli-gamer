@@ -23,9 +23,15 @@ import type { AgentSettings } from '../types.js';
 import { GCSTaskStore, NoOpTaskStore } from '../persistence/gcs.js';
 import { CoderAgentExecutor } from '../agent/executor.js';
 import { requestStorage } from './requestStorage.js';
-import { loadConfig, loadEnvironment, setTargetDir } from '../config/config.js';
+import {
+  loadConfig,
+  loadEnvironment,
+  setTargetDir,
+  getProjectsBaseDir,
+} from '../config/config.js';
 import { loadSettings } from '../config/settings.js';
 import { loadExtensions } from '../config/extension.js';
+import { initSessionStore } from '../storage/session-store.js';
 import { commandRegistry } from '../commands/command-registry.js';
 import {
   debugLogger,
@@ -159,6 +165,11 @@ export async function createApp() {
   try {
     // 保存原始工作目录（在 setTargetDir 改变之前）
     const originalCwd = process.cwd();
+
+    // 初始化会话持久化存储
+    const projectsDir = getProjectsBaseDir();
+    initSessionStore(projectsDir);
+    logger.info(`[CoreAgent] Session store initialized at: ${projectsDir}`);
 
     // Load the server configuration once on startup.
     const workspaceRoot = setTargetDir(undefined);

@@ -16,8 +16,12 @@ import { GeminiEventType, executeToolCall } from '@google/gemini-cli-core';
 import type { Part } from '@google/genai';
 import { logger } from '../utils/logger.js';
 import { Task } from '../agent/task.js';
-import { createSessionWorkDir, createSessionConfig } from '../config/config.js';
+import { createSessionConfig, generateRandomId } from '../config/config.js';
 import type { Settings } from '../config/settings.js';
+import {
+  getSessionStore,
+  type StoredMessage,
+} from '../storage/session-store.js';
 
 interface ChatSession {
   id: string;
@@ -27,14 +31,14 @@ interface ChatSession {
   createdAt: number;
 }
 
-// 简单的内存会话存储（生产环境应使用 Redis 等）
-const sessions = new Map<string, ChatSession>();
+// 内存中的活跃会话（用于保持 Gemini 客户端连接）
+const activeSessions = new Map<string, ChatSession>();
 
 // 会话创建所需的上下文
 interface SessionContext {
   settings: Settings;
-  extensions: GeminiCLIExtension[]; // 存储 extensions 数组，而不是 ExtensionLoader 实例
-  baseConfig: Config; // 用于获取认证等信息
+  extensions: GeminiCLIExtension[];
+  baseConfig: Config;
 }
 
 let sessionContext: SessionContext | undefined;
@@ -50,33 +54,80 @@ async function getOrCreateSession(
   sessionId: string | undefined,
   _baseConfig: Config,
 ): Promise<ChatSession> {
-  if (sessionId && sessions.has(sessionId)) {
-    const session = sessions.get(sessionId)!;
+  const store = getSessionStore();
+
+  // 检查内存中的活跃会话
+  if (sessionId && activeSessions.has(sessionId)) {
+    const session = activeSessions.get(sessionId)!;
     // 检查会话是否过期（24小时）
     if (Date.now() - session.createdAt < 24 * 60 * 60 * 1000) {
       return session;
     }
-    sessions.delete(sessionId);
+    activeSessions.delete(sessionId);
   }
 
-  const newSessionId = sessionId || uuidv4();
-  const contextId = uuidv4();
+  // 检查持久化存储中的会话
+  if (sessionId && store.hasSession(sessionId)) {
+    const storedSession = store.getSession(sessionId)!;
+    const workDirPath = store.getWorkDirPath(sessionId)!;
 
-  // 为新会话创建专用工作目录
-  const workDir = createSessionWorkDir();
+    logger.info(
+      `[ChatAPI] Restoring session ${sessionId} with work directory: ${workDirPath}`,
+    );
+
+    // 重建会话
+    if (!sessionContext) {
+      throw new Error('[ChatAPI] Session context not set.');
+    }
+
+    const sessionExtensionLoader = new SimpleExtensionLoader(
+      sessionContext.extensions,
+    );
+
+    const config = await createSessionConfig(
+      sessionContext.settings,
+      sessionExtensionLoader,
+      sessionId,
+      workDirPath,
+    );
+
+    const contextId = uuidv4();
+    const task = await Task.create(
+      sessionId,
+      contextId,
+      config,
+      undefined,
+      true,
+    );
+    await task.geminiClient.initialize();
+
+    const session: ChatSession = {
+      id: sessionId,
+      task,
+      config,
+      workDir: workDirPath,
+      createdAt: storedSession.createdAt,
+    };
+    activeSessions.set(sessionId, session);
+    return session;
+  }
+
+  // 创建新会话
+  const newSessionId = sessionId || `session-${Date.now()}`;
+  const workDirName = generateRandomId();
+
+  if (!sessionContext) {
+    throw new Error('[ChatAPI] Session context not set.');
+  }
+
+  // 在持久化存储中创建会话
+  const storedSession = store.createSession(newSessionId, workDirName);
+  const workDirPath = store.getWorkDirPath(newSessionId)!;
+
   logger.info(
-    `[ChatAPI] New session ${newSessionId} using work directory: ${workDir}`,
+    `[ChatAPI] New session ${newSessionId} using work directory: ${workDirPath}`,
   );
 
-  // 为会话创建独立的 Config
-  if (!sessionContext) {
-    throw new Error(
-      '[ChatAPI] Session context not set. This should not happen. Please ensure setSessionContext() is called during app initialization.',
-    );
-  }
-
-  // 为每个会话创建独立的 ExtensionLoader 实例
-  // 因为 ExtensionLoader.start() 只能调用一次，每个 Config 需要独立的实例
   const sessionExtensionLoader = new SimpleExtensionLoader(
     sessionContext.extensions,
   );
@@ -85,32 +136,80 @@ async function getOrCreateSession(
     sessionContext.settings,
     sessionExtensionLoader,
     newSessionId,
-    workDir,
+    workDirPath,
   );
 
-  // Use Task class to handle complete tool execution loop
+  const contextId = uuidv4();
   const task = await Task.create(
     newSessionId,
     contextId,
     config,
-    undefined, // No eventBus for chat API
-    true, // autoExecute: tools run automatically in YOLO mode
+    undefined,
+    true,
   );
-
   await task.geminiClient.initialize();
 
   const session: ChatSession = {
     id: newSessionId,
     task,
     config,
-    workDir,
-    createdAt: Date.now(),
+    workDir: workDirPath,
+    createdAt: storedSession.createdAt,
   };
-  sessions.set(newSessionId, session);
+  activeSessions.set(newSessionId, session);
   return session;
 }
 
 export function setupChatRoutes(app: express.Express, config: Config): void {
+  const store = getSessionStore();
+
+  // GET /api/v1/sessions - 获取所有会话
+  app.get('/api/v1/sessions', (_req, res) => {
+    const sessions = store.listSessions();
+    return res.json(sessions);
+  });
+
+  // GET /api/v1/sessions/:sessionId - 获取会话详情（含消息）
+  app.get('/api/v1/sessions/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+    const session = store.getSession(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const messages = store.getMessages(sessionId);
+    return res.json({ ...session, messages });
+  });
+
+  // PUT /api/v1/sessions/:sessionId - 更新会话
+  app.put('/api/v1/sessions/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+    const { title } = req.body;
+
+    const session = store.updateSession(sessionId, { title });
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    return res.json(session);
+  });
+
+  // DELETE /api/v1/sessions/:sessionId - 删除会话
+  app.delete('/api/v1/sessions/:sessionId', (req, res) => {
+    const { sessionId } = req.params;
+
+    // 从内存中移除活跃会话
+    activeSessions.delete(sessionId);
+
+    const success = store.deleteSession(sessionId);
+    if (!success) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    return res.json({ success: true });
+  });
+
   // POST /api/v1/chat - Send message and get streaming response
   app.post('/api/v1/chat', async (req, res): Promise<void> => {
     try {
@@ -124,13 +223,29 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
       const session = await getOrCreateSession(sessionId, config);
       const promptId = uuidv4();
 
+      // 保存用户消息到持久化存储
+      const userMessage: StoredMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: message,
+        timestamp: Date.now(),
+      };
+      store.addMessage(session.id, userMessage);
+
       // Set SSE response headers
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
-      res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+      res.setHeader('X-Accel-Buffering', 'no');
 
-      // Send initial message ID
+      // Send session ID and message ID
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'session',
+          sessionId: session.id,
+          workDir: session.workDir,
+        })}\n\n`,
+      );
       res.write(
         `data: ${JSON.stringify({ type: 'messageId', messageId: promptId })}\n\n`,
       );
@@ -140,10 +255,11 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
         abortController.abort();
       });
 
+      // 收集完整的 AI 响应
+      let fullResponse = '';
+
       try {
-        // Process message with complete tool execution loop
-        // 使用会话的 config（包含正确的 targetDir），而不是全局 config
-        await processMessageWithToolLoop(
+        fullResponse = await processMessageWithToolLoop(
           session.task,
           message,
           promptId,
@@ -151,6 +267,25 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
           res,
           session.config,
         );
+
+        // 保存 AI 响应到持久化存储
+        if (fullResponse) {
+          const assistantMessage: StoredMessage = {
+            id: promptId,
+            role: 'assistant',
+            content: fullResponse,
+            timestamp: Date.now(),
+          };
+          store.addMessage(session.id, assistantMessage);
+
+          // 如果是第一条消息，更新会话标题
+          const messages = store.getMessages(session.id);
+          if (messages.length === 2) {
+            // 1 user + 1 assistant
+            const title = message.substring(0, 30);
+            store.updateSession(session.id, { title });
+          }
+        }
 
         res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
         res.end();
@@ -187,11 +322,10 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
         });
       }
 
-      if (!sessionId || !sessions.has(sessionId)) {
+      if (!sessionId || !activeSessions.has(sessionId)) {
         return res.status(404).json({ error: 'Session not found' });
       }
 
-      // Tool confirmation is not needed in YOLO mode
       logger.info(
         `[ChatAPI] Tool call ${toolCallId} ${confirmed ? 'confirmed' : 'rejected'}`,
       );
@@ -205,10 +339,10 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
     }
   });
 
-  // GET /api/v1/session/:sessionId - 获取会话信息
+  // GET /api/v1/session/:sessionId - 获取会话信息（兼容旧 API）
   app.get('/api/v1/session/:sessionId', (req, res) => {
     const { sessionId } = req.params;
-    const session = sessions.get(sessionId);
+    const session = activeSessions.get(sessionId);
 
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
@@ -223,7 +357,7 @@ export function setupChatRoutes(app: express.Express, config: Config): void {
 
 /**
  * Process message with complete tool execution loop.
- * Reuses the pattern from gemini-cli's nonInteractiveCli and CoderAgentExecutor.
+ * Returns the full response content.
  */
 async function processMessageWithToolLoop(
   task: Task,
@@ -232,10 +366,11 @@ async function processMessageWithToolLoop(
   signal: AbortSignal,
   res: express.Response,
   config: Config,
-): Promise<void> {
-  const MAX_TURNS = 50; // Prevent infinite loops
+): Promise<string> {
+  const MAX_TURNS = 50;
   let turnCount = 0;
   let currentRequest: Part[] = [{ text: message }];
+  let fullContent = '';
 
   while (turnCount < MAX_TURNS) {
     turnCount++;
@@ -262,12 +397,13 @@ async function processMessageWithToolLoop(
         res.write(
           `data: ${JSON.stringify({ type: 'error', error: 'Request cancelled' })}\n\n`,
         );
-        return;
+        return fullContent;
       }
 
       if (event.type === GeminiEventType.Content) {
         const text = typeof event.value === 'string' ? event.value : '';
         if (text) {
+          fullContent += text;
           res.write(
             `data: ${JSON.stringify({ type: 'text', content: text, messageId: promptId })}\n\n`,
           );
@@ -307,7 +443,7 @@ async function processMessageWithToolLoop(
             error: errorValue?.error?.message || 'Unknown error',
           })}\n\n`,
         );
-        return;
+        return fullContent;
       } else if (event.type === GeminiEventType.Finished) {
         break;
       }
@@ -383,7 +519,6 @@ async function processMessageWithToolLoop(
       }
     }
 
-    // Send tool results back to model for next turn
     if (toolResponseParts.length > 0) {
       currentRequest = toolResponseParts;
       logger.info(
@@ -409,4 +544,6 @@ async function processMessageWithToolLoop(
       })}\n\n`,
     );
   }
+
+  return fullContent;
 }

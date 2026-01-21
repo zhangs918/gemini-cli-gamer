@@ -3,14 +3,70 @@ import type { ChatMessage, StreamEvent, ApiError } from '../types';
 
 const API_BASE_URL = '/api/v1';
 
+export interface SessionMetadata {
+  id: string;
+  title: string;
+  workDir: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SessionWithMessages extends SessionMetadata {
+  messages: ChatMessage[];
+}
+
 export class ApiClient {
   private abortController: AbortController | null = null;
+
+  // 获取所有会话
+  async getSessions(): Promise<SessionMetadata[]> {
+    const response = await fetch(`${API_BASE_URL}/sessions`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch sessions');
+    }
+    return response.json();
+  }
+
+  // 获取单个会话（含消息）
+  async getSession(sessionId: string): Promise<SessionWithMessages> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch session');
+    }
+    return response.json();
+  }
+
+  // 更新会话标题
+  async updateSession(
+    sessionId: string,
+    updates: { title?: string },
+  ): Promise<SessionMetadata> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to update session');
+    }
+    return response.json();
+  }
+
+  // 删除会话
+  async deleteSession(sessionId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete session');
+    }
+  }
 
   async sendMessage(
     message: string,
     sessionId?: string,
     onStream?: (event: StreamEvent) => void,
-  ): Promise<ChatMessage> {
+  ): Promise<ChatMessage & { sessionId?: string }> {
     // 取消之前的请求
     if (this.abortController) {
       this.abortController.abort();
@@ -55,11 +111,12 @@ export class ApiClient {
   private async handleStreamResponse(
     response: Response,
     onStream?: (event: StreamEvent) => void,
-  ): Promise<ChatMessage> {
+  ): Promise<ChatMessage & { sessionId?: string }> {
     const reader = response.body?.getReader();
     const decoder = new TextDecoder();
     let fullContent = '';
     let messageId = '';
+    let returnSessionId: string | undefined;
 
     if (!reader) {
       throw new Error('No response body');
@@ -78,7 +135,14 @@ export class ApiClient {
             try {
               const data = JSON.parse(line.slice(6));
 
-              if (data.type === 'messageId') {
+              if (data.type === 'session') {
+                // 会话信息事件
+                returnSessionId = data.sessionId;
+                onStream?.({
+                  type: 'session' as any,
+                  data: { sessionId: data.sessionId, workDir: data.workDir },
+                });
+              } else if (data.type === 'messageId') {
                 // 初始消息 ID 事件
                 messageId = data.messageId || messageId;
               } else if (data.type === 'text') {
@@ -130,6 +194,7 @@ export class ApiClient {
       role: 'assistant',
       content: fullContent,
       timestamp: Date.now(),
+      sessionId: returnSessionId,
     };
   }
 
