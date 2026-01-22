@@ -1,4 +1,4 @@
-# Gemini CLI Web UI
+# wanaka gamer
 
 Gemini CLI 的网页前端界面。
 

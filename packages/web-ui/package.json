@@ -1,7 +1,7 @@
 {
   "name": "@google/gemini-cli-web-ui",
   "version": "0.26.0-nightly.20260115.6cb3ae4e0",
-  "description": "Gemini CLI Web UI",
+  "description": "wanaka gamer",
   "type": "module",
   "scripts": {
     "dev": "vite",
